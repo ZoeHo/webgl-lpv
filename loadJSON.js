@@ -37,7 +37,7 @@ function handleLoadedCornellbox(modelData) {
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(modelData.uvs), gl.STATIC_DRAW);
     vertexTextureCoordBuffer.itemSize = 2;
     vertexTextureCoordBuffer.numItems = modelData.uvs.length / vertexTextureCoordBuffer.itemSize;
-*/
+    */
     /*
     // teapot
     vertexPositionBuffer = gl.createBuffer();
@@ -60,9 +60,9 @@ function handleLoadedCornellbox(modelData) {
 
     vertexIndexBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, vertexIndexBuffer);
-    modelData.faces = modelData.faces.map(function(v) {
+    /*modelData.faces = modelData.faces.map(function(v) {
         return v - 1;
-    });
+    });*/
     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(modelData.faces), gl.STATIC_DRAW);
     vertexIndexBuffer.itemSize = 1;
     vertexIndexBuffer.numItems = modelData.faces.length;
@@ -73,7 +73,7 @@ function handleLoadedCornellbox(modelData) {
     /*for (var i = 0; i < 6; i++) {
         modelData.colors = modelData.colors.concat(modelData.colors);
     }*/
-    initColor(modelData);
+    //initColor(modelData);
 
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(modelData.colors), gl.STATIC_DRAW);
     vertexColorBuffer.itemSize = 4;
@@ -84,7 +84,7 @@ function handleLoadedCornellbox(modelData) {
 
 function loadCornellbox() {
     var request = new XMLHttpRequest();
-    request.open("GET", "obj/cornellbox.js");
+    request.open("GET", "obj/cornellbox2.js");
     //request.open("GET", "obj/Teapot.json");
     request.onreadystatechange = function() {
         if (request.readyState == 4) {

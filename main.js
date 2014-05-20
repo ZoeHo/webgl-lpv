@@ -49,8 +49,8 @@ function initShaders() {
     shaderProgram.vertexColorAttribute = gl.getAttribLocation(shaderProgram, "aVertexColor");
     gl.enableVertexAttribArray(shaderProgram.vertexColorAttribute);
 
-    /*shaderProgram.textureCoordAttribute = gl.getAttribLocation(shaderProgram, "aTextureCoord");
-    gl.enableVertexAttribArray(shaderProgram.textureCoordAttribute);*/
+    //shaderProgram.textureCoordAttribute = gl.getAttribLocation(shaderProgram, "aTextureCoord");
+    //gl.enableVertexAttribArray(shaderProgram.textureCoordAttribute);
 
     shaderProgram.pMatrixUniform = gl.getUniformLocation(shaderProgram, "uPMatrix");
     shaderProgram.mvMatrixUniform = gl.getUniformLocation(shaderProgram, "uMVMatrix");
@@ -77,7 +77,7 @@ function initTexture() {
         handleLoadedTexture(cubeTexture)
     }
 
-    cubeTexture.image.src = "empty.png" //"firefoxlogo.png";
+    cubeTexture.image.src = "firefoxlogo.png"; //"empty.png";
 }
 
 
@@ -142,9 +142,9 @@ function drawScene() {
     gl.bindBuffer(gl.ARRAY_BUFFER, vertexColorBuffer);
     gl.vertexAttribPointer(shaderProgram.vertexColorAttribute, vertexColorBuffer.itemSize, gl.FLOAT, false, 0, 0);
 
-    /*gl.activeTexture(gl.TEXTURE0);
+    gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, cubeTexture);
-    gl.uniform1i(shaderProgram.samplerUniform, 0);*/
+    gl.uniform1i(shaderProgram.samplerUniform, 0);
 
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, vertexIndexBuffer);
     setMatrixUniforms();
@@ -190,7 +190,9 @@ function start() {
     loadCornellbox();
 
     gl.clearColor(0.0, 0.0, 0.0, 1.0);
+    gl.clearDepth(1.0);
     gl.enable(gl.DEPTH_TEST);
+    gl.enable(gl.CULL_FACE);
 
     tick();
 }
