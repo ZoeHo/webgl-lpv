@@ -16,5 +16,5 @@ function initTexture() {
         handleLoadedTexture(cubeTexture)
     }
 
-    cubeTexture.image.src = "firefoxlogo.png"; //"empty.png";
+    cubeTexture.image.src = "firefoxlogo.png";
 }

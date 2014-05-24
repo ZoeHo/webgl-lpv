@@ -74,15 +74,23 @@ shaderResource.prototype.GetShader = function(gl, vshaderName, fshaderName) {
     gl.compileShader(vshader);
     gl.attachShader(this.shaderProgram, vshader);
 
+    // Check the compile status, return an error if failed
+    if (!gl.getShaderParameter(vshader, gl.COMPILE_STATUS)) {
+        console.log(gl.getShaderInfoLog(vshader));
+    }
+
     fshader = gl.createShader(gl.FRAGMENT_SHADER);
     gl.shaderSource(fshader, fshaderName);
     gl.compileShader(fshader);
     gl.attachShader(this.shaderProgram, fshader);
+
+    // Check the compile status, return an error if failed
+    if (!gl.getShaderParameter(fshader, gl.COMPILE_STATUS)) {
+        console.log(gl.getShaderInfoLog(fshader));
+    }
 };
 
 shaderResource.prototype.UseProgram = function() {
-    gl.useProgram(this.shaderProgram);
-
     gl.useProgram(this.shaderProgram);
 
     this.shaderProgram.vertexPositionAttribute = this.GetAttribute("aVertexPosition");
@@ -92,8 +100,9 @@ shaderResource.prototype.UseProgram = function() {
     this.shaderProgram.vertexColorAttribute = this.GetAttribute("aVertexColor");
     gl.enableVertexAttribArray(this.shaderProgram.vertexColorAttribute);
 
-    //shaderProgram.textureCoordAttribute = gl.getAttribLocation(shaderProgram, "aTextureCoord");
-    //gl.enableVertexAttribArray(shaderProgram.textureCoordAttribute);
+    // texture
+    //this.shaderProgram.textureCoordAttribute = this.GetAttribute("aTextureCoord");
+    //gl.enableVertexAttribArray(this.shaderProgram.textureCoordAttribute);
 
     this.shaderProgram.pMatrixUniform = this.GetUniform("uPMatrix");
     this.shaderProgram.mvMatrixUniform = this.GetUniform("uMVMatrix");

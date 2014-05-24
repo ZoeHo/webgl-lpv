@@ -66,11 +66,16 @@ function drawScene() {
     //mat4.rotate(mvMatrix, degToRad(yRot), [0, 1, 0]);
     //mat4.rotate(mvMatrix, degToRad(zRot), [0, 0, 1]);
 
-    //
-
-    // buffer
+    // position buffer
     gl.bindBuffer(gl.ARRAY_BUFFER, vertexPositionBuffer);
     gl.vertexAttribPointer(baseShader.shaderProgram.vertexPositionAttribute, vertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
+
+    // texture
+    /*gl.bindBuffer(gl.ARRAY_BUFFER, vertexTextureCoordBuffer);
+    gl.vertexAttribPointer(baseShader.shaderProgram.textureCoordAttribute, vertexTextureCoordBuffer.itemSize, gl.FLOAT, false, 0, 0);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, cubeTexture);
+    gl.uniform1i(baseShader.shaderProgram.samplerUniform, 0);*/
 
     // color
     gl.bindBuffer(gl.ARRAY_BUFFER, vertexColorBuffer);

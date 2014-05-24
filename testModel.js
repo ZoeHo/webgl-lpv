@@ -5,6 +5,9 @@ var bbox;
 
 var baseShader;
 var rsmShader;
+var rsmNormalShader;
+var rsmDiffuseShader;
+var rsmDepthShader;
 
 function cleanup() {
     // correspond lpv/test_model::cleanup();
@@ -119,5 +122,14 @@ function createShader() {
     shlist.push(baseShader);
 
     console.log("Create RSM shader.");
+    //rsmShader = new shaderResource();
+    //rsmShader.initShaders("rsmShader", rsmVertexShader, rsmFragmentShader);
+    rsmNormalShader = new shaderResource();
+    rsmNormalShader.initShaders("rsmNormalShader", rsmVertexShader, rsmNormalFragmentShader);
+    rsmDiffuseShader = new shaderResource();
+    rsmDiffuseShader.initShaders("rsmDiffuseShader", rsmVertexShader, rsmDiffuseFragmentShader);
+    rsmDepthShader = new shaderResource();
+    rsmDepthShader.initShaders("rsmDepthShader", rsmVertexShader, rsmDepthFragmentShader);
+
 
 }

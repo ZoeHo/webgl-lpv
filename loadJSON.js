@@ -13,6 +13,7 @@ function handleLoadedCornellbox(modelData) {
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(modelData.normals), gl.STATIC_DRAW);
     vertexNormalBuffer.itemSize = 3;
     vertexNormalBuffer.numItems = modelData.normals.length / vertexNormalBuffer.itemSize;
+    
 
     vertexTextureCoordBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, vertexTextureCoordBuffer);
