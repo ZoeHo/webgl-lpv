@@ -7,7 +7,7 @@ var cubeFragmentShader = '\
 	uniform sampler2D uSampler;*/\
 	\
 	void main(void) {\
-	    gl_FragColor = /*texture2D(uSampler, vec2(vTextureCoord.s, vTextureCoord.t)) **/ vColor;\
+	    gl_FragColor = /*texture2D(uSampler, vec2(vTextureCoord.s, vTextureCoord.t)) **/vColor;\
 	}';
 
 var cubeVertexShader = '\

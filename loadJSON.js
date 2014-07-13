@@ -14,7 +14,6 @@ function handleLoadedCornellbox(modelData) {
     vertexNormalBuffer.itemSize = 3;
     vertexNormalBuffer.numItems = modelData.normals.length / vertexNormalBuffer.itemSize;
     
-
     vertexTextureCoordBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, vertexTextureCoordBuffer);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(modelData.uvs), gl.STATIC_DRAW);
@@ -22,9 +21,11 @@ function handleLoadedCornellbox(modelData) {
     vertexTextureCoordBuffer.numItems = modelData.uvs.length / vertexTextureCoordBuffer.itemSize;
     */
 
+
     // position : vetex
     vertexArray = modelData.vertices;
-    bbox = calculateBBox();
+    bbox = new Boundingbox();
+    bbox.calculateBBox(vertexArray);
 
     vertexPositionBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, vertexPositionBuffer);
@@ -53,15 +54,15 @@ function handleLoadedCornellbox(modelData) {
     //document.getElementById("loadingtext").textContent = "";
 }
 
-//function loadCornellbox(callback) {
-function loadCornellbox() {
+function loadCornellbox(callback) {
+    //function loadCornellbox() {
     var request = new XMLHttpRequest();
     request.open("GET", "obj/cornellbox2.js");
     request.onreadystatechange = function() {
         if (request.readyState == 4) {
             handleLoadedCornellbox(JSON.parse(request.responseText));
             // wait for succeed to load model file, go to next function
-            //callback();
+            callback();
         }
     }
     request.send();

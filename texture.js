@@ -1,4 +1,4 @@
-var cubeTexture;
+/*var cubeTexture;
 
 function handleLoadedTexture(texture) {
     gl.bindTexture(gl.TEXTURE_2D, texture);
@@ -17,4 +17,61 @@ function initTexture() {
     }
 
     cubeTexture.image.src = "firefoxlogo.png";
+}*/
+
+function Texture(_name, _params, _width, _height, _data) {
+    this.name = _name;
+    this.params = _params;
+    this.width = _width;
+    this.height = _height;
+    this.data = _data;
+    this.texture = null;
+
+    this.initTexture();
+}
+
+Texture.prototype = {
+    initTexture: function() {
+        this.texture = gl.createTexture();
+        this.handleLoadedTexture(this.texture);
+    },
+    handleLoadedTexture: function(texture) {
+        gl.bindTexture(this.params.target, texture);
+        gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+
+        gl.texParameteri(this.params.target, gl.TEXTURE_WRAP_S, this.params.warpS);
+        gl.texParameteri(this.params.target, gl.TEXTURE_WRAP_T, this.params.warpT);
+        gl.texParameteri(this.params.target, gl.TEXTURE_MAG_FILTER, this.params.magFilter);
+        gl.texParameteri(this.params.target, gl.TEXTURE_MIN_FILTER, this.params.minFilter);
+
+        if (this.params.anisotropyDegree > 1) {
+            var ext = (
+                gl.getExtension("WEBKIT_EXT_texture_filter_anisotropic") ||
+                gl.getExtension("EXT_texture_filter_anisotropic")
+            );
+            gl.texParameteri(this.params.target, ext.TEXTURE_MAX_ANISOTROPY_EXT, this.params.anisotropyDegree);
+        }
+
+        gl.texImage2D(this.params.target, 0, this.params.internalFormat, this.width, this.height, 0, this.params.sourceFormat, this.params.type, this.data);
+
+        if (this.params.minFilter === gl.LINEAR_MIPMAP_LINEAR ||
+            this.params.minFilter === gl.NEAREST_MIPMAP_NEAREST ||
+            this.params.minFilter === gl.LINEAR_MIPMAP_NEAREST ||
+            this.params.minFilter === gl.NEAREST_MIPMAP_LINEAR) {
+            gl.generateMipmap(this.params.target);
+        }
+        gl.bindTexture(this.params.target, null);
+    },
+};
+
+function TextureParams() {
+    this.target = gl.TEXTURE_2D;
+    this.warpS = gl.CLAMP_TO_EDGE;
+    this.warpT = gl.CLAMP_TO_EDGE;
+    this.magFilter = gl.LINEAR;
+    this.minFilter = gl.LINEAR;
+    this.sourceFormat = gl.RGB;
+    this.internalFormat = gl.RGB;
+    this.type = gl.UNSIGNED_BYTE;
+    this.anisotropyDegree = 0;
 }

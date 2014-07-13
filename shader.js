@@ -44,7 +44,7 @@ function initShaders() {
     shaderProgram.samplerUniform = gl.getUniformLocation(shaderProgram, "uSampler");
 }*/
 
-function shaderResource() {
+function ShaderResource() {
     this.name = null;
     this.shaderProgram = {
         vertexPositionAttribute: null,
@@ -56,7 +56,7 @@ function shaderResource() {
     };
 }
 
-shaderResource.prototype.initShaders = function(name, vs, fs) {
+ShaderResource.prototype.initShaders = function(name, vs, fs) {
     this.name = name;
     this.shaderProgram = gl.createProgram();
     this.GetShader(gl, vs, fs);
@@ -67,7 +67,7 @@ shaderResource.prototype.initShaders = function(name, vs, fs) {
     }
 };
 
-shaderResource.prototype.GetShader = function(gl, vshaderName, fshaderName) {
+ShaderResource.prototype.GetShader = function(gl, vshaderName, fshaderName) {
     var fshader, vshader;
     vshader = gl.createShader(gl.VERTEX_SHADER);
     gl.shaderSource(vshader, vshaderName);
@@ -76,7 +76,7 @@ shaderResource.prototype.GetShader = function(gl, vshaderName, fshaderName) {
 
     // Check the compile status, return an error if failed
     if (!gl.getShaderParameter(vshader, gl.COMPILE_STATUS)) {
-        console.log(gl.getShaderInfoLog(vshader));
+        console.log("VertexShader " + gl.getShaderInfoLog(vshader));
     }
 
     fshader = gl.createShader(gl.FRAGMENT_SHADER);
@@ -86,11 +86,11 @@ shaderResource.prototype.GetShader = function(gl, vshaderName, fshaderName) {
 
     // Check the compile status, return an error if failed
     if (!gl.getShaderParameter(fshader, gl.COMPILE_STATUS)) {
-        console.log(gl.getShaderInfoLog(fshader));
+        console.log("FragmentShader " + gl.getShaderInfoLog(fshader));
     }
 };
 
-shaderResource.prototype.UseProgram = function() {
+ShaderResource.prototype.UseProgram = function() {
     gl.useProgram(this.shaderProgram);
 
     this.shaderProgram.vertexPositionAttribute = this.GetAttribute("aVertexPosition");
@@ -109,15 +109,15 @@ shaderResource.prototype.UseProgram = function() {
     this.shaderProgram.samplerUniform = this.GetUniform("uSampler");
 }
 
-shaderResource.prototype.GetAttribute = function(attributeName) {
+ShaderResource.prototype.GetAttribute = function(attributeName) {
     return gl.getAttribLocation(this.shaderProgram, attributeName);
 };
 
-shaderResource.prototype.GetUniform = function(uniformName) {
+ShaderResource.prototype.GetUniform = function(uniformName) {
     return gl.getUniformLocation(this.shaderProgram, uniformName);
 };
 
-shaderResource.prototype.setMatrixUniforms = function(shaderProgram) {
+ShaderResource.prototype.setMatrixUniforms = function(shaderProgram) {
     gl.uniformMatrix4fv(shaderProgram.pMatrixUniform, false, pMatrix);
     gl.uniformMatrix4fv(shaderProgram.mvMatrixUniform, false, mvMatrix);
 }

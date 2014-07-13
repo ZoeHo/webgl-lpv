@@ -1,9 +1,12 @@
 var gl;
 var canvas;
+var env;
 
 function initGL(canvas) {
     try {
         gl = canvas.getContext("webgl");
+        gl.getExtension("OES_texture_float");
+        gl.getExtension("OES_texture_half_float");
         canvas.width = innerWidth;
         canvas.height = innerHeight;
         gl.viewport(0.0, 0.0, canvas.width, canvas.height);
@@ -74,7 +77,7 @@ function drawScene() {
     /*gl.bindBuffer(gl.ARRAY_BUFFER, vertexTextureCoordBuffer);
     gl.vertexAttribPointer(baseShader.shaderProgram.textureCoordAttribute, vertexTextureCoordBuffer.itemSize, gl.FLOAT, false, 0, 0);
     gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, cubeTexture);
+    gl.bindTexture(gl.TEXTURE_2D, textureList[0].texture);
     gl.uniform1i(baseShader.shaderProgram.samplerUniform, 0);*/
 
     // color
@@ -138,14 +141,35 @@ function reshape() {
 
 }
 
+function demoSetting() {
+    console.log("Constructor");
+    env = new Environment();
+    env.initProjMatrixDirty(true);
+    env.initError(false);
+    env.initCam([0.0, 0.0, -27.5], [0.0, 0.0, 0.0]);
+    env.initZnear(1.0);
+    env.initZfar(200.0);
+    env.initIteration(8);
+    env.initLightVolumeTextureDim([16, 16, 16]);
+    env.initLightRotation(Math.PI / 2.0);
+    env.initRotateDir(1.0);
+    env.initIndirectLightOn(true);
+    env.initWireFrameMode(false);
+    env.initRotateLight(false);
+    env.initUseGeomVolume(true);
+    env.initDampen(true);
+    env.initLightRotateAxis(true);
+}
+
 function start() {
     canvas = document.getElementById("glcanvas");
     initGL(canvas);
+    demoSetting();
     initList();
 
     modelCreate();
     //initShaders();
-    initTexture();
+    //initTexture();
     //loadCornellbox();
 
     gl.clearColor(0.0, 0.0, 0.0, 1.0);
