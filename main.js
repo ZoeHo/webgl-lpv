@@ -7,8 +7,11 @@ function initGL(canvas) {
         gl = canvas.getContext("webgl");
         gl.getExtension("OES_texture_float");
         gl.getExtension("OES_texture_half_float");
-        canvas.width = innerWidth;
-        canvas.height = innerHeight;
+        gl.getExtension("OES_texture_float_linear");
+        //canvas.width = innerWidth;
+        //canvas.height = innerHeight;
+        canvas.width = 1280;
+        canvas.height = 720;
         gl.viewport(0.0, 0.0, canvas.width, canvas.height);
     } catch (e) {}
     if (!gl) {
@@ -51,6 +54,11 @@ var xRot = 0;
 var yRot = 0;
 var zRot = 0;
 
+function display() {
+    // draw scene to RSM
+    
+}
+
 function drawScene() {
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
@@ -65,13 +73,15 @@ function drawScene() {
 
     mat4.translate(mvMatrix, [0.0, 0.0, -50.0]);
 
+    display();
     //mat4.rotate(mvMatrix, degToRad(xRot), [1, 0, 0]);
     //mat4.rotate(mvMatrix, degToRad(yRot), [0, 1, 0]);
     //mat4.rotate(mvMatrix, degToRad(zRot), [0, 0, 1]);
 
     // position buffer
     gl.bindBuffer(gl.ARRAY_BUFFER, vertexPositionBuffer);
-    gl.vertexAttribPointer(baseShader.shaderProgram.vertexPositionAttribute, vertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
+    gl.vertexAttribPointer(baseShader.shaderProgram.vertexPositionAttribute, 
+                           vertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
 
     // texture
     /*gl.bindBuffer(gl.ARRAY_BUFFER, vertexTextureCoordBuffer);
@@ -82,7 +92,8 @@ function drawScene() {
 
     // color
     gl.bindBuffer(gl.ARRAY_BUFFER, vertexColorBuffer);
-    gl.vertexAttribPointer(baseShader.shaderProgram.vertexColorAttribute, vertexColorBuffer.itemSize, gl.FLOAT, false, 0, 0);
+    gl.vertexAttribPointer(baseShader.shaderProgram.vertexColorAttribute, 
+                           vertexColorBuffer.itemSize, gl.FLOAT, false, 0, 0);
 
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, vertexIndexBuffer);
     //setMatrixUniforms();
@@ -125,16 +136,54 @@ function animate() {
     lastTime = timeNow;
 }
 
+// set light direction when light rotated
+function idleFunction() {
+    if(env.rotateLight) {
+        // rotate
+        if(env.lightRotation > Math.PI) {
+            env.rotateDir *= -1.0;
+            env.lightRotation = Math.PI;
+        } else if(env.lightRotation < 0.0) {
+                env.rotateDir *= -1.0;
+                env.lightRotation = 0.0;
+        }
 
+        var lightDir = [0.0, 0.0, 0.0];
+        var rot = mat4.create();
+
+        if(env.lightRotateAxis) {
+            // to do - build rotate matrix
+            mat4.identity(rot);
+            mat4.rotate(rot, (-1.0)*env.lightRotation, [1.0, 0.0, 0.0] );
+
+            mat4.vecTransform(rot, lightDir, [0.0, 0.0, -1.0]);
+        } else {
+            var axis = [0.0, 0.0, 0.0];
+            vec3.normalize( [1.0, 0.0, 1.0], axis );
+            mat4.identity(rot);
+            mat4.rotate(rot, -(1.0)*env.lightRotation, axis);
+            axis[2] *= (-1.0);
+            mat4.vecTransform(rot, lightDir, axis);
+        }
+        env.lightRotation += Math.PI * env.rotateDir * 60 /( 1000.0 * 60.0 );
+        sunLight.setDir(lightDir);
+        sunLight.update();
+    }
+}
+
+// called in afterModelLoaded function.
 function tick() {
     requestAnimFrame(tick);
+    idleFunction();
     drawScene();
     animate();
 }
 
 function reshape() {
-    canvas.width = innerWidth;
-    canvas.height = innerHeight;
+    //canvas.width = innerWidth;
+    //canvas.height = innerHeight;
+    canvas.width = 1280;
+    canvas.height = 720;
     gl.viewport(0.0, 0.0, canvas.width, canvas.height);
     gl.clearColor(0.0, 0.0, 0.0, 1.0);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
@@ -177,7 +226,7 @@ function start() {
     gl.enable(gl.DEPTH_TEST);
     gl.enable(gl.CULL_FACE);
 
-    tick();
+    //tick();
 }
 
 window.onload = function() {

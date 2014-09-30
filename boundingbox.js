@@ -54,6 +54,13 @@ Boundingbox.prototype = {
         return min;
     },
 
+    getMax: function() {
+        return this.maxV;
+    },
+    getMin: function() {
+        return this.minV;
+    },
+
     // calculate the center of bounding box
     calculateCenter: function(max, min) {
         var center = [max[0] + min[0], max[1] + min[1], max[2] + min[2]];

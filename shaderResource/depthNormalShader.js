@@ -6,8 +6,7 @@ var depthNormalFragmentShader =
     " varying vec3 view_space_normal; 								\n" +
     " varying float view_space_depth; 								\n" +
     "																\n" +
-    " void main()													\n" +
-    " {																\n" +
+    " void main() { 												\n" +
     "	vec2 packed_depth;											\n" +
     "	packed_depth.r = floor(view_space_depth * 255.0) / 255.0;	\n" +
     "	packed_depth.g = fract(view_space_depth * 255.0);			\n" +

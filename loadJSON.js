@@ -27,6 +27,10 @@ function handleLoadedCornellbox(modelData) {
     bbox = new Boundingbox();
     bbox.calculateBBox(vertexArray);
 
+    var vbuffer = new nbuffer();
+    vbuffer.create("testModelVertexBuffer", vertexArray);
+    bufferList.push(vbuffer);
+
     vertexPositionBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, vertexPositionBuffer);
     //gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(modelData.vertices), gl.STATIC_DRAW);

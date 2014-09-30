@@ -2,9 +2,9 @@
 // store light intensity as SH (spherical harmonics)
 var indirectLightFragmentShader =
     " precision mediump float;															\n" +
-    " uniform sampler3D incoming_red;													\n" +
-    " uniform sampler3D incoming_green;													\n" +
-    " uniform sampler3D incoming_blue;													\n" +
+    " uniform sampler2D incoming_red;													\n" +
+    " uniform sampler2D incoming_green;													\n" +
+    " uniform sampler2D incoming_blue;  												\n" +
     "																					\n" +
     " // offset to sample neighbouring cells											\n" +
     " # ifdef DAMPEN 																	\n" +
@@ -13,26 +13,62 @@ var indirectLightFragmentShader =
     " varying vec3 light_space_normal;													\n" +
     " varying vec3 grid_coords;															\n" +
     "																					\n" +
+    " vec4 sampleAs3DTexture( sampler2D texImage, vec3 grid_coords ) {                  \n" +
+    "     // light volume dim = 16                                                      \n" +
+    "     float half_texel_size = 0.0625 * 0.5;                                         \n" +
+    "     grid_coords.z -= half_texel_size;                                             \n" +
+    "     vec3 tex_coords = grid_coords;                                                \n" +
+    "     vec2 trans_grid_coords;                                                       \n" +
+    "                                                                                   \n" +
+    "     // get vexel color in z0 slice                                                \n" +
+    "     if( grid_coords.z >= 1.0 ) {                                                  \n" +
+    "         tex_coords.z = fract( grid_coords.z );                                    \n" +
+    "     }                                                                             \n" +
+    "     if( grid_coords.z < 0.0 ) {                                                   \n" +
+    "         tex_coords.z = 1.0 - 0.0625;                                              \n" +
+    "     }                                                                             \n" +
+    "                                                                                   \n" +
+    "     trans_grid_coords.x = ( tex_coords.x + floor( tex_coords.z * 16.0 ) ) / 16.0; \n" +
+    "     trans_grid_coords.y = tex_coords.y;                                           \n" +
+    "     vec4 z0 = texture2D( texImage, trans_grid_coords );                           \n" +
+    "                                                                                   \n" +
+    "     // get vexel color in z1 slice                                                \n" +
+    "     if( grid_coords.z < 0.0 || grid_coords.z >= ( 1.0 - 0.0625*0.5 ) ) {          \n" +
+    "         tex_coords.z = 0.0;                                                       \n" +
+    "         trans_grid_coords.x = ( tex_coords.x + floor( tex_coords.z * 16.0 ) ) / 16.0; \n" +
+    "     } else {                                                                          \n" +
+    "         trans_grid_coords.x = ( tex_coords.x + floor( tex_coords.z * 16.0 )+ 1.0) / 16.0;\n" +
+    "     }                                                                             \n" +
+    "     trans_grid_coords.y = tex_coords.y;                                           \n" +
+    "     vec4 z1 = texture2D( texImage, trans_grid_coords );                           \n" +
+    "                                                                                   \n" +
+    "     // calculate real z position between z0 and z1 slices                         \n" +
+    "     float zOffset = mod( grid_coords.z * 16.0, 1.0 );                             \n" +
+    "                                                                                   \n" +
+    "     // do linear interpolation to get real z vexel color                          \n" +
+    "     return mix( z0, z1, zOffset );                                                \n" +
+    " }                                                                                 \n" +
+    "                                                                                   \n" +
     " vec3 calc_indirect_lighting( in vec3 grid_coords, in vec4 transfer_function) {	\n" +
     " 	vec3 indirect;																	\n" +
     "   // find dampening factor 														\n" +
     "	// based on the directional derivative of the intensity distribution 			\n" +
     "	// to reduce light bleeding through thin walls									\n" +
-    "	vec4 red = texture3D(incoming_red, grid_coords);								\n" +
-    "	vec4 green = texture3D(incoming_green, grid_coords);							\n" +
-    "	vec4 blue = texture3D(incoming_blue, grid_coords);								\n" +
+    "	vec4 red = sampleAs3DTexture(incoming_red, grid_coords);						\n" +
+    "	vec4 green = sampleAs3DTexture(incoming_green, grid_coords);					\n" +
+    "	vec4 blue = sampleAs3DTexture(incoming_blue, grid_coords);						\n" +
     "																					\n" +
     "	# ifdef DAMPEN 																	\n" +
     "	vec3 offset = light_space_normal * offset_along_normal;							\n" +
     "	vec3 sample_location1 = grid_coords + offset; // in front of the surface		\n" +
     "	vec3 sample_location2 = grid_coords - offset; // behind the surface				\n" +
     "																					\n" +
-    "	vec4 neighbour1_red = texture3D(incoming_red, sample_location1);				\n" +
-    "	vec4 neighbour1_green = texture3D(incoming_green, sample_location1);			\n" +
-    "	vec4 neighbour1_blue = texture3D(incoming_blue, sample_location1);				\n" +
-    "	vec4 neighbour2_red = texture3D(incoming_red, sample_location2);				\n" +
-    "	vec4 neighbour2_green = texture3D(incoming_green, sample_location2);			\n" +
-    "	vec4 neighbour2_blue = texture3D(incoming_blue, sample_location2);				\n" +
+    "	vec4 neighbour1_red = sampleAs3DTexture(incoming_red, sample_location1);		\n" +
+    "	vec4 neighbour1_green = sampleAs3DTexture(incoming_green, sample_location1);	\n" +
+    "	vec4 neighbour1_blue = sampleAs3DTexture(incoming_blue, sample_location1);		\n" +
+    "	vec4 neighbour2_red = sampleAs3DTexture(incoming_red, sample_location2);		\n" +
+    "	vec4 neighbour2_green = sampleAs3DTexture(incoming_green, sample_location2);	\n" +
+    "	vec4 neighbour2_blue = sampleAs3DTexture(incoming_blue, sample_location2);		\n" +
     "																					\n" +
     "	vec4 diff_red = (neighbour1_red - neighbour2_red);								\n" +
     "	vec4 diff_green = (neighbour1_green - neighbour2_green);						\n" +
@@ -53,7 +89,7 @@ var indirectLightFragmentShader =
     "							  dot(diff_blue, diff_blue));							\n" +
     "																					\n" +
     "	// reduce indirect light thus removing the light from behind the wall 			\n" +
-    " 	dampening = vec3(1.0) - step * sqrt(dampening_mag) / dampening_max;				\n" +
+    " 	vec3 dampening = vec3(1.0) - step * sqrt(dampening_mag) / dampening_max;		\n" +
     "																					\n" +
     "	dampening = max(dampening, 0.2);												\n" +
     "																					\n" +

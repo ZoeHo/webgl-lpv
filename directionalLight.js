@@ -23,5 +23,8 @@ Light.prototype = {
         // create grid space based on light direction, and rotate scene within the grid.
         // light space direction in grid space is set to (0, 0, -1)
         this.grid_space.create(this.dir, this.grid_bbox);
+    },
+    setDir: function(dir) {
+        this.dir = dir;
     }
 };

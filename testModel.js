@@ -6,6 +6,8 @@ var sunLight;
 var rsm;
 var dnBuffer; // depth normal buffer
 var ilBuffer; // indirect light buffer
+var grid;
+var geometryVolume;
 
 var baseShader;
 var rsmShader;
@@ -44,10 +46,12 @@ function modelCreate() {
 
 // motion when model complete loaded
 function afterModelLoaded() {
-    var grid_bbox;
+    var gridBbox;
+    //var lightVolumeDim = [ 16.0, 16.0, 16.0 ];
+    var lightVolumeDim = env.lightVolumeTextureDim;
 
     createShader();
-    grid_bbox = createGridBoundingBox();
+    gridBbox = createGridBoundingBox();
 
     sunLight = new Light();
     sunLight.createLight(grid_bbox); //now
@@ -63,6 +67,15 @@ function afterModelLoaded() {
 
     console.log("Indirect light buffer.");
     createILBuffer();
+
+    console.log("Grid.");
+    createGrid( gridBbox, lightVolumeDim, rsmWidth, rsmHeight, sunLight );
+
+    console.log("Geometry volume.");
+    createGeometryVolume();
+
+    // call tick() to prompt requestAnimFrame function
+    tick();
 }
 
 // shader
@@ -135,61 +148,27 @@ function normalize(vector) {
     return vector;
 }
 
+// create depth normal buffer
 function createDNBuffer() {
     dnBuffer = new DepthNormalBuffer();
     dnBuffer.create(canvas.width, canvas.height, env.znear, env.zfar, 512);
 }
 
+// create indirect light buffer
 function createILBuffer() {
     ilBuffer = new IndirectLightBuffer();
     ilBuffer.create(canvas.width / 2, canvas.height / 2);
 }
 
-function IndirectLightBuffer() {
-    this._width = 0;
-    this._height = 0;
+function createGrid( grid_bbox, lightVolumeDim, rsmWidth, rsmHeight, sunLight ) {
+    grid = new ngrid();
+    var iterations = 8;
+    grid.setIterations( iterations );
 
-    this._lightBuffer;
-    this._blurBuffer;
-    this._depthBuffer;
-    this._params = [];
+    grid.create( grid_bbox, lightVolumeDim[0], lightVolumeDim[1], lightVolumeDim[2], rsmWidth, rsmHeight, sunLight );
 }
 
-IndirectLightBuffer.prototype = {
-    create: function(width, height) {
-        this._width = width;
-        this._height = height;
-
-        // create indirect light buffer texture
-        this._params = new TextureParams();
-        this._params.magFilter = gl.LINEAR;
-        this._params.minFilter = gl.LINEAR;
-        this._params.internalFormat = gl.RGB;
-        this._params.sourceFormat = gl.RGB;
-
-        this._lightBuffer = new Texture("indirectLightBuffer", this._params, this._width, this._height, null);
-        textureList.push(this._lightBuffer);
-
-        // create the buffer to blur the light buffer
-        this._blurBuffer = new Texture("blurBuffer", this._params, this._width, this._height, null);
-        textureList.push(this._blurBuffer);
-
-        // create indirect light depth buffer
-        this._depthBuffer = new DepthBuffer();
-        this._depthBuffer.params = new DepthBufferParams();
-        this._depthBuffer.create(this._depthBuffer.params, this._width, this._height);
-
-        // create indirect light & blur shader
-        this.createShader();
-
-        window.o = this;
-    },
-    createShader: function() {
-        // first indirect light shader , not define dampen
-        var indirectLightShader = new ShaderResource();
-        indirectLightShader.initShaders("indirectLightShader", indirectLightVertexShader, indirectLightFragmentShader);
-
-        // second indirect light shader , define dampen
-        var indirectLightDampenShader = new ShaderResource();
-    }
-};
+function createGeometryVolume() {
+    geometryVolume = new ngeometryVolume();
+    grid.createGeometryVolume(geometryVolume);
+}
