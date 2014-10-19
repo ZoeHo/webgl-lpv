@@ -26,5 +26,17 @@ Light.prototype = {
     },
     setDir: function(dir) {
         this.dir = dir;
+    },
+    getGridSpaceRotation: function() {
+        return this.grid_space.getRotation();
+    },
+    getGridSpaceTranslation: function() {
+        return this.grid_space.getTranslation();
+    },
+    getGridSpaceProjection: function() {
+        return this.grid_space.getProjection();
+    },
+    getGridbox: function() {
+        return this.grid_bbox;
     }
 };

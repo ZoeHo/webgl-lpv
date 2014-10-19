@@ -92,21 +92,6 @@ ShaderResource.prototype.GetShader = function(gl, vshaderName, fshaderName) {
 
 ShaderResource.prototype.UseProgram = function() {
     gl.useProgram(this.shaderProgram);
-
-    this.shaderProgram.vertexPositionAttribute = this.GetAttribute("aVertexPosition");
-    gl.enableVertexAttribArray(this.shaderProgram.vertexPositionAttribute);
-
-    // color
-    this.shaderProgram.vertexColorAttribute = this.GetAttribute("aVertexColor");
-    gl.enableVertexAttribArray(this.shaderProgram.vertexColorAttribute);
-
-    // texture
-    //this.shaderProgram.textureCoordAttribute = this.GetAttribute("aTextureCoord");
-    //gl.enableVertexAttribArray(this.shaderProgram.textureCoordAttribute);
-
-    this.shaderProgram.pMatrixUniform = this.GetUniform("uPMatrix");
-    this.shaderProgram.mvMatrixUniform = this.GetUniform("uMVMatrix");
-    this.shaderProgram.samplerUniform = this.GetUniform("uSampler");
 }
 
 ShaderResource.prototype.GetAttribute = function(attributeName) {
@@ -117,7 +102,47 @@ ShaderResource.prototype.GetUniform = function(uniformName) {
     return gl.getUniformLocation(this.shaderProgram, uniformName);
 };
 
-ShaderResource.prototype.setMatrixUniforms = function(shaderProgram) {
-    gl.uniformMatrix4fv(shaderProgram.pMatrixUniform, false, pMatrix);
-    gl.uniformMatrix4fv(shaderProgram.mvMatrixUniform, false, mvMatrix);
+ShaderResource.prototype.setMatrixUniforms = function(uniformName, matrix) {
+    var matrixUnifrom;
+    matrixUnifrom = this.GetUniform(uniformName);
+    gl.uniformMatrix4fv(matrixUnifrom, false, matrix);
+};
+
+ShaderResource.prototype.setUniform = function(uniformName, variable) {
+    var uniformLocation;
+    uniformLocation = this.GetUniform(uniformName);
+    gl.uniform1f(uniformLocation, variable);
+};
+
+ShaderResource.prototype.setUniform2f = function(uniformName, variable) {
+    var uniformLocation;
+    uniformLocation = this.GetUniform(uniformName);
+    gl.uniform2f(uniformLocation, variable[0], variable[1]);
 }
+
+ShaderResource.prototype.setUniformBuffer = function(uniformName, buffer) {
+    var uniformLocation;
+    uniformLocation = this.GetUniform(uniformName);
+    gl.uniform1fv(uniformLocation, buffer);
+};
+
+ShaderResource.prototype.setUniformSampler = function(uniformName, texture) {
+    var uniformLocation;
+    uniformLocation = this.GetUniform(uniformName);
+    gl.uniform1i(uniformLocation, texture);
+};
+
+ShaderResource.prototype.activeSampler = function(texture, activeID) {
+    gl.activeTexture(gl.TEXTURE0 + activeID);
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+};
+
+ShaderResource.prototype.setAttributes = function(buffer, attributeName, type) {
+    var attributeLocation;
+    attributeLocation = this.GetAttribute(attributeName);
+    gl.enableVertexAttribArray(attributeLocation);
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+    gl.getAttribLocation(this.shaderProgram, attributeName);
+    gl.vertexAttribPointer(attributeLocation, buffer.itemSize, type, false, 0, 0);
+};

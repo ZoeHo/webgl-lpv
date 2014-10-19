@@ -16,37 +16,43 @@ RSM.prototype = {
         this.height = _height;
 
         //create normal buffer
-        this.params = new TextureParams();
-        this.params.magFilter = gl.NEAREST;
-        this.params.minFilter = gl.NEAREST;
-        this.params.internalFormat = gl.LUMINANCE;
-        this.params.sourceFormat = gl.LUMINANCE;
-        this.params.type = gl.FLOAT;
+        var normalParams = new TextureParams();
+        normalParams.magFilter = gl.NEAREST;
+        normalParams.minFilter = gl.NEAREST;
+        normalParams.internalFormat = gl.LUMINANCE;
+        normalParams.sourceFormat = gl.LUMINANCE;
+        normalParams.type = gl.FLOAT;
 
-
-        this.normalTexX = new Texture("rsmNormalTexX", this.params, this.width, this.height, null);
+        this.normalTexX = new Texture("rsmNormalTexX", normalParams, this.width, this.height, null);
         textureList.push(this.normalTexX);
 
-        this.normalTexY = new Texture("rsmNormalTexY", this.params, this.width, this.height, null);
+        this.normalTexY = new Texture("rsmNormalTexY", normalParams, this.width, this.height, null);
         textureList.push(this.normalTexY);
 
         // create color buffer
-        this.params.internalFormat = gl.RGB;
-        this.params.sourceFormat = gl.RGB;
-        this.params.type = gl.UNSIGNED_BYTE;
-        this.colorTex = new Texture("rsmColorTex", this.params, this.width, this.height, null);
+        var colorParams = new TextureParams();
+        colorParams.magFilter = gl.NEAREST;
+        colorParams.minFilter = gl.NEAREST;
+        colorParams.internalFormat = gl.RGB;
+        colorParams.sourceFormat = gl.RGB;
+        colorParams.type = gl.UNSIGNED_BYTE;
+        
+        this.colorTex = new Texture("rsmColorTex", colorParams, this.width, this.height, null);
         textureList.push(this.colorTex);
 
         // create depth buffers
-        this.params.internalFormat = gl.LUMINANCE;
-        this.params.sourceFormat = gl.LUMINANCE;
-        this.params.type = gl.FLOAT;
-        this.depthTex = new Texture("rsmDepthTex", this.params, this.width, this.height, null);
+        this.depthTex = new Texture("rsmDepthTex", normalParams, this.width, this.height, null);
         textureList.push(this.depthTex);
 
         this.depthBuffer = new DepthBuffer();
         this.depthBuffer.params = new DepthBufferParams();
         this.depthBuffer.create(this.depthBuffer.params, _width, _height);
+    },
+    getWidth: function() {
+        return this.width;
+    },
+    getHeight: function() {
+        return this.height;
     }
 };
 

@@ -14,7 +14,7 @@ var depthNormalFragmentShader =
     "	vec2 normal = vec2(normalize(view_space_normal) );			\n" +
     "	normal = normal * 0.5 + 0.5;								\n" +
     "																\n" +
-    "	gl_FragColor = vec4(packed_depth, normal);					\n" +
+    "	gl_FragColor = vec4(packed_depth, normal);	       			\n" +
     " }																\n";
 
 var depthNormalVertexShader =

@@ -1,10 +1,12 @@
 // This file is loading model
 
-var vertexPositionBuffer;
+//var vertexPositionBuffer;
 var vertexNormalBuffer;
 var vertexTextureCoordBuffer;
 var vertexIndexBuffer;
 var vertexColorBuffer;
+
+var model;
 
 function handleLoadedCornellbox(modelData) {
     console.log("LoadModel");
@@ -21,22 +23,22 @@ function handleLoadedCornellbox(modelData) {
     vertexTextureCoordBuffer.numItems = modelData.uvs.length / vertexTextureCoordBuffer.itemSize;
     */
 
-
-    // position : vetex
+    model = modelData;
+    // position : vertex
     vertexArray = modelData.vertices;
     bbox = new Boundingbox();
     bbox.calculateBBox(vertexArray);
 
     var vbuffer = new nbuffer();
-    vbuffer.create("testModelVertexBuffer", vertexArray);
+    vbuffer.create("testModelVertexBuffer", vertexArray, 3);
     bufferList.push(vbuffer);
 
-    vertexPositionBuffer = gl.createBuffer();
+    /*vertexPositionBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, vertexPositionBuffer);
     //gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(modelData.vertices), gl.STATIC_DRAW);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertexArray), gl.STATIC_DRAW);
     vertexPositionBuffer.itemSize = 3;
-    vertexPositionBuffer.numItems = modelData.vertices.length / vertexPositionBuffer.itemSize;
+    vertexPositionBuffer.numItems = modelData.vertices.length / vertexPositionBuffer.itemSize;*/
 
     // face : index
     vertexIndexBuffer = gl.createBuffer();
@@ -55,7 +57,24 @@ function handleLoadedCornellbox(modelData) {
     vertexColorBuffer.itemSize = 4;
     vertexColorBuffer.numItems = modelData.colors.length / vertexColorBuffer.itemSize;
 
-    //document.getElementById("loadingtext").textContent = "";
+    // normal
+    vertexNormalBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, vertexNormalBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(modelData.normals), gl.STATIC_DRAW);
+    vertexNormalBuffer.itemSize = 3;
+    vertexNormalBuffer.numItems = modelData.normals.length / vertexNormalBuffer.itemSize;
+    
+    // texture coordinate
+    var scaleTexCoord = modelData.uvs;
+    for( var i = 0; i < scaleTexCoord.length; i++ ) {
+        scaleTexCoord[i] *= 8;
+    }
+    vertexTextureCoordBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, vertexTextureCoordBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(scaleTexCoord), gl.STATIC_DRAW);
+    vertexTextureCoordBuffer.itemSize = 2;
+    vertexTextureCoordBuffer.numItems = modelData.uvs.length / vertexTextureCoordBuffer.itemSize;
+ 
 }
 
 function loadCornellbox(callback) {

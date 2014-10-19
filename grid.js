@@ -108,24 +108,24 @@ ngrid.prototype = {
 	// create two vertex buffer - slices & vpls
 	createSlices: function() {
 		var posArray = [];
-		posArray.push(new vec2f(0.0, 0.0));
-		posArray.push(new vec2f(1.0, 0.0));
-		posArray.push(new vec2f(0.0, 1.0));
+		posArray.push(0.0, 0.0);
+		posArray.push(1.0, 0.0);
+		posArray.push(0.0, 1.0);
 
-		posArray.push(new vec2f(1.0, 0.0));
-		posArray.push(new vec2f(1.0, 1.0));
-		posArray.push(new vec2f(0.0, 1.0));
+		posArray.push(1.0, 0.0);
+		posArray.push(1.0, 1.0);
+		posArray.push(0.0, 1.0);
 		
 		var vbuffer = new nbuffer();
-		vbuffer.create("slices", posArray);
+		vbuffer.create("slices", posArray, 2);
 		this.slices = vbuffer;
 		bufferList.push(vbuffer);
 	},
 	createVpls:function(rsmWidth, rsmHeight) {
 		var posArray = [];
-		posArray.push(new vec2f(0.0, 0.0));
+		posArray.push(0.0, 0.0);
 		var vbuffer = new nbuffer();
-		vbuffer.create("vplBuffer", posArray);
+		vbuffer.create("vplBuffer", posArray, 2);
 		this.vpl = vbuffer;
 		bufferList.push(vbuffer);
 	},

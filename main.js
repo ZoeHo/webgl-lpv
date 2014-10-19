@@ -46,8 +46,8 @@ function mvPopMatrix() {
     mvMatrix = mvMatrixStack.pop();
 }
 
-function degToRad(degrees) {
-    return degrees * Math.PI / 180;
+function degtoRad(degrees) {
+    return degrees * Math.PI / 180.0;
 }
 
 var xRot = 0;
@@ -56,39 +56,56 @@ var zRot = 0;
 
 function display() {
     // draw scene to RSM
-    
+    drawtoRsm(sunLight, rsm);
+
+    var viewMat = mat4.create();
+    viewMat = mvMatrix;
+
+    if(env.indirectLightOn){
+        // draw scene to the geometry buffer
+        depthNormalBuffer.begin(viewMat, pMatrix, sunLight);
+        depthNormalBuffer.draw();
+        depthNormalBuffer.resample();
+    }
 }
 
 function drawScene() {
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-    if (vertexPositionBuffer == null || vertexIndexBuffer == null) {
+    /*if (vertexPositionBuffer == null || vertexIndexBuffer == null) {
         console.log("Return: buffer is empty.");
         return;
-    }
+    }*/
 
-    mat4.perspective(45, canvas.width / canvas.height, 0.1, 100.0, pMatrix);
-
+    mat4.perspective(60.0, canvas.width / canvas.height, 1.0, 200.0, pMatrix);
     mat4.identity(mvMatrix);
-
-    mat4.translate(mvMatrix, [0.0, 0.0, -50.0]);
+    mat4.translate(mvMatrix, [0.0, 0.0, -27.5]);
 
     display();
-    //mat4.rotate(mvMatrix, degToRad(xRot), [1, 0, 0]);
-    //mat4.rotate(mvMatrix, degToRad(yRot), [0, 1, 0]);
-    //mat4.rotate(mvMatrix, degToRad(zRot), [0, 0, 1]);
+    
+    /*gl.viewport(0.0, 0.0, canvas.width, canvas.height);
+    // run base shader
+    var baseshader = shaderList[0];
+    baseshader.UseProgram();
+    baseShaderSet(shaderList[0]);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, vertexIndexBuffer);
+    gl.drawElements(gl.TRIANGLES, vertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);*/
+
+    //mat4.rotate(mvMatrix, degtoRad(xRot), [1, 0, 0]);
+    //mat4.rotate(mvMatrix, degtoRad(yRot), [0, 1, 0]);
+    //mat4.rotate(mvMatrix, degtoRad(zRot), [0, 0, 1]);
 
     // position buffer
-    gl.bindBuffer(gl.ARRAY_BUFFER, vertexPositionBuffer);
+    /*gl.bindBuffer(gl.ARRAY_BUFFER, vertexPositionBuffer);
     gl.vertexAttribPointer(baseShader.shaderProgram.vertexPositionAttribute, 
                            vertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
 
     // texture
-    /*gl.bindBuffer(gl.ARRAY_BUFFER, vertexTextureCoordBuffer);
+    gl.bindBuffer(gl.ARRAY_BUFFER, vertexTextureCoordBuffer);
     gl.vertexAttribPointer(baseShader.shaderProgram.textureCoordAttribute, vertexTextureCoordBuffer.itemSize, gl.FLOAT, false, 0, 0);
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, textureList[0].texture);
-    gl.uniform1i(baseShader.shaderProgram.samplerUniform, 0);*/
+    gl.uniform1i(baseShader.shaderProgram.samplerUniform, 0);
 
     // color
     gl.bindBuffer(gl.ARRAY_BUFFER, vertexColorBuffer);
@@ -96,9 +113,8 @@ function drawScene() {
                            vertexColorBuffer.itemSize, gl.FLOAT, false, 0, 0);
 
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, vertexIndexBuffer);
-    //setMatrixUniforms();
-    baseShader.setMatrixUniforms(baseShader.shaderProgram);
-    gl.drawElements(gl.TRIANGLES, vertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
+    //baseShader.setMatrixUniforms(baseShader.shaderProgram);
+    gl.drawElements(gl.TRIANGLES, vertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);*/
     //
 
     // buffer
@@ -200,7 +216,7 @@ function demoSetting() {
     env.initZfar(200.0);
     env.initIteration(8);
     env.initLightVolumeTextureDim([16, 16, 16]);
-    env.initLightRotation(Math.PI / 2.0);
+    env.initLightRotation(Math.PI / 2.0);   // pi = 3.141592f;
     env.initRotateDir(1.0);
     env.initIndirectLightOn(true);
     env.initWireFrameMode(false);

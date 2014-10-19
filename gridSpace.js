@@ -48,5 +48,14 @@ gridSpace.prototype = {
         var w2 = range[0] / 2.0;
         var h2 = range[1] / 2.0;
         mat4.buildOrthoProjection(this.projection, (-1) * w2, w2, h2, (-1) * h2, 0.0, zrange);
+    },
+    getRotation: function() {
+        return this.rotation;
+    },
+    getTranslation: function() {
+        return this.translation;
+    },
+    getProjection: function() {
+        return this.projection;
     }
 };
