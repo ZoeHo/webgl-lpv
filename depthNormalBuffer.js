@@ -147,5 +147,8 @@ ndepthNormalBuffer.prototype = {
         gl.bindTexture(gl.TEXTURE_2D, textureList[5].texture);
         gl.copyTexImage2D(gl.TEXTURE_2D, 0, textureList[5].params.internalFormat, 0, 0, this._blockerBufferWidth, this._blockerBufferHeight, 0);
         gl.bindTexture(gl.TEXTURE_2D, null);
+
+        gl.depthMask(true);
+        gl.enable(gl.DEPTH_TEST);
     }
 };
