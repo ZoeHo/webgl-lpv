@@ -131,5 +131,9 @@ ngrid.prototype = {
 	},
 	createGeometryVolume: function(geometryVolume) {
 		geometryVolume.create(this.cellSize, this._dimx + 1, this._dimy + 1, this._dimz + 1);
+	},
+	inject: function(geometryVolume, depthNormalBuffer) {
+		// create blocking potentials from geometry buffer
+		geometryVolume.injectBlocker2(depthNormalBuffer, this.vpl);
 	}
 };

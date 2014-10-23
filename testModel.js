@@ -9,13 +9,6 @@ var ilBuffer; // indirect light buffer
 var grid;
 var geometryVolume;
 
-var baseShader;
-var rsmNormalShader;
-var rsmDiffuseShader;
-var rsmDepthShader;
-var finalILShader;
-var finalNILShader;
-
 function cleanup() {
     // correspond lpv/test_model::cleanup();
     // to do rsm shader clean up
@@ -81,7 +74,7 @@ function afterModelLoaded() {
 function createShader() {
     console.log("CreateShader");
 
-    baseShader = new ShaderResource();
+    var baseShader = new ShaderResource();
     baseShader.initShaders("baseShader", cubeVertexShader, cubeFragmentShader);
     baseShader.UseProgram();
 
@@ -105,21 +98,21 @@ function createRSMshader() {
     rsmNormalYShader.initShaders("rsmNormalYShader", rsmVertexShader, rsmNormalYFragmentShader);
     shaderList.push(rsmNormalYShader);
 
-    rsmDiffuseShader = new ShaderResource();
+    var rsmDiffuseShader = new ShaderResource();
     rsmDiffuseShader.initShaders("rsmDiffuseShader", rsmVertexShader, rsmDiffuseFragmentShader);
     shaderList.push(rsmDiffuseShader);
 
-    rsmDepthShader = new ShaderResource();
+    var rsmDepthShader = new ShaderResource();
     rsmDepthShader.initShaders("rsmDepthShader", rsmVertexShader, rsmDepthFragmentShader);
     shaderList.push(rsmDepthShader);
 }
 
 function createFinalShader() {
-    finalILShader = new ShaderResource();
+    var finalILShader = new ShaderResource();
     finalILShader.initShaders("finalILShader", finalVertexShader, finalFragmentShader);
     shaderList.push(finalILShader);
 
-    finalNILShader = new ShaderResource();
+    var finalNILShader = new ShaderResource();
     var finalNILVertexShader = "#define NO_INDIRECT_LIGHT\n";
     finalNILVertexShader = finalNILVertexShader.concat(finalVertexShader);
     var finalNILFragmentShader = "#define NO_INDIRECT_LIGHT\n";

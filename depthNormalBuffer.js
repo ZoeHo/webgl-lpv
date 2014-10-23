@@ -60,6 +60,21 @@ ndepthNormalBuffer.prototype = {
         this.resampleShader.initShaders("resampleShader", resampleVertexShader, resampleFragmentShader);
         shaderList.push(this.resampleShader);
     },
+    getBlockerBufferWidth: function() {
+        return this._blockerBufferWidth;
+    },
+    getBlockerBufferHeight: function() {
+        return this._blockerBufferHeight;
+    },
+    getNearFarPlane: function() {
+        return this._nearFarPlane;
+    },
+    getInvProj: function() {
+        return this._invProj;
+    },
+    getViewtoGridMatirx: function() {
+        return this._fromViewtoGrid;
+    },
     begin: function(viewMatrix, projMatrix, light) {
         // set shader
         var shader = this.depthNormalShader;
@@ -141,7 +156,8 @@ ndepthNormalBuffer.prototype = {
         return positionBuffer;
     },
     drawResampleTexture: function(){
-        gl.drawArrays(gl.TRIANGLES, 0, bufferList[3]._buffer.numItems);       
+        gl.drawArrays(gl.TRIANGLES, 0, bufferList[3]._buffer.numItems);
+
         gl.bindTexture(gl.TEXTURE_2D, null);
 
         gl.bindTexture(gl.TEXTURE_2D, textureList[5].texture);
