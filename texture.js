@@ -26,6 +26,7 @@ function Texture(_name, _params, _width, _height, _data) {
     this.height = _height;
     this.data = _data;
     this.texture = null;
+    this.pixels = null;
 
     this.initTexture();
 }
@@ -77,6 +78,20 @@ Texture.getUnsignedTexImage = function(textureID) {
 
     gl.deleteFramebuffer(framebuffer);
 };
+
+Texture.getFloatTexImage = function(textureID) {
+    // Read the contents of the framebuffer (data stores the pixel data)
+    var width = textureList[textureID].width;
+    var height = textureList[textureID].height;
+    if( textureList[textureID].data ){
+        textureList[textureID].data = [];
+    }
+    if( !textureList[textureID].pixels ) {
+        textureList[textureID].pixels = new Uint8Array(width * height * 4);
+    }
+    gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, textureList[textureID].pixels);
+    textureList[textureID].data = new Float32Array(textureList[textureID].pixels.buffer);
+}
 
 function TextureParams() {
     this.target = gl.TEXTURE_2D;

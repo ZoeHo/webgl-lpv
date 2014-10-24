@@ -10,13 +10,25 @@ function blockerData() {
 	this.height;
 	this.nearFarPlane = [];
 	this.invProj = [];
-	this.viewtoGridMatrix = mat4.create();;
+	this.viewtoGridMatrix = mat4.create();
 	this.gridOrig = [];
 	this.gridSize = [];
 	this.cellArea;
 	this.vpl = [];
 	this.numVpls;
 };
+
+function rsmBlockerData() {
+	this.rsmDepth;
+	this.rsmNormal;
+	this.width;
+	this.height;
+	this.cellSizez;
+	this.projRsmtogvGrid = [0, 0, 0, 0];
+	this.pointWeight;
+	this.vpl = [];
+	this.numVpls;
+}
 
 function ngeometryVolume() {
 	this._dimx = 0.0;
@@ -328,5 +340,45 @@ ngeometryVolume.prototype = {
 		if(this.texPos[index + 3] <= 2048) {
 			colorTex[index + 3] += blocker[3];
 		}
+	},
+
+	// inject2 - inject blocker from rsm
+	injectBlocker: function(rsm, vpls) {
+		var blockerdata = new rsmBlockerData();
+
+		// get blocker buffer data from rsm
+		blockerdata.width = rsm.getWidth();
+		blockerdata.height = rsm.getHeight();
+
+		blockerdata.cellSizez = this._cellSize[2];
+		
+		/*
+		// needs to do get rsm depth & normal texture
+		// get rsm_depth texture [sampler: depth_tex] ( depth texture is one channel )
+		// get rsm_normal texture [sampler: normal_tex] ( normal texture is two channel )
+		*/
+
+		// geometry volume grid dimension = light grid dimension - 1
+		// projRsmtogvGrid.zw - get texel center
+		blockerdata.projRsmtogvGrid[0] = (this._dimx - 1) / this._dimx;
+		blockerdata.projRsmtogvGrid[1] = (this._dimy - 1) / this._dimy;
+		blockerdata.projRsmtogvGrid[2] = 0.5 / (this._dimx);
+		blockerdata.projRsmtogvGrid[3] = 0.5 / (this._dimy);
+
+		// number of cells in one slice of light grid
+		var tcells = (this._dimx - 1) * (this._dimy - 1);
+		var t = rsm.getWidth() * rsm.getHeight();
+		blockerdata.pointWeight = tcells / t;
+		blockerdata.vpl = bufferList[2]._data;
+		blockerdata.numVpls = rsm.getWidth() * rsm.getHeight();
+		
+		gl.clearColor(0.0, 0.0, 0.0, 0.0);
+        gl.clear(gl.COLOR_BUFFER_BIT);
+        gl.viewport(0, 0, this._dimx, this._dimy);
+        // glEnable(GL_BLEND);
+		// glBlendFunc(GL_ONE, GL_ONE);
+		
+
+		window.o = blockerdata;
 	}
 };

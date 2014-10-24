@@ -1,12 +1,12 @@
 var cubeFragmentShader =
-    " precision mediump float;												\n" +
+" precision mediump float;												\n" +
     " varying vec4 vColor;													\n" +
     "																		\n" +
 	" /*varying vec2 vTextureCoord;											\n" +
 	" 																		\n" +
 	" uniform sampler2D uSampler;*/											\n" +
 	"																		\n" +
-	" void main(void) {														\n" +
+    " void main(void) {														\n" +
 	"    gl_FragColor = /*texture2D(uSampler, vec2(vTextureCoord.s, vTextureCoord.t)) **/vColor; \n" +
 	" }																		\n";
 

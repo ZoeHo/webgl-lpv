@@ -69,6 +69,8 @@ function display() {
 
         // inject blocking potentials into geometry volume
         grid.inject(geometryVolume, depthNormalBuffer);
+        // inject blocking potentials from RSM
+        grid.inject2(geometryVolume, rsm);
     }
 }
 

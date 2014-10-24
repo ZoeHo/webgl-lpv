@@ -244,9 +244,10 @@ function drawTextureElement(textureID) {
     gl.drawElements(gl.TRIANGLES, vertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
     //gl.drawArrays(gl.TRIANGLES, 0, 234);
 
-    //textureList[2].data = new Uint8Array(512 *512 * 4);
-    //gl.readPixels(0, 0, 512, 512, gl.RGBA, gl.UNSIGNED_BYTE, textureList[2].data);
-    //pixels = new Float32Array(pixels.buffer);
+    if(textureList[textureID].params.type === gl.FLOAT) {
+        Texture.getFloatTexImage(textureID);
+    }
+
     gl.copyTexImage2D(gl.TEXTURE_2D, 0, textureList[textureID].params.internalFormat, 0, 0, textureList[textureID].width, textureList[textureID].height, 0);
     gl.bindTexture(gl.TEXTURE_2D, null);
     //gl.bindFramebuffer(gl.FRAMEBUFFER, null);
