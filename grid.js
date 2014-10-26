@@ -136,8 +136,11 @@ ngrid.prototype = {
 		// create blocking potentials from depth normal buffer
 		geometryVolume.injectBlocker2(depthNormalBuffer, this.vpl);
 	},
-	inject2: function() {
+	inject2: function(geometryVolume, rsm) {
 		// create blocking potentials from RSM depth & normal
 		geometryVolume.injectBlocker(rsm, this.vpl);
+	},
+	selectGrid: function(geometryVolume) {
+		geometryVolume.selectBlockers(this.slices);
 	}
 };

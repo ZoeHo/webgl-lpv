@@ -31,6 +31,15 @@ function rsmBlockerData() {
 	this.numVpls;
 }
 
+function selectBlockerData() {
+	this.rsmTex;
+	this.surfaceTex;
+	this.gridDepth;
+	this.halfTexelSize;
+	this.primcount;
+	this.slices;
+}
+
 function ngeometryVolume() {
 	this._dimx = 0.0;
 	this._dimy = 0.0;
@@ -39,9 +48,9 @@ function ngeometryVolume() {
 	this._cellSize = [];
 	this._bbox = new Boundingbox();
 
-	this.injectBlockerShader;
+	/*this.injectBlockerShader;
 	this.injectBlocker2Shader;
-	this.selectGvShader;
+	this.selectGvShader;*/
 
 	this.gvTexture0 = [];
 	this.gvTexture1 = [];
@@ -392,7 +401,7 @@ ngeometryVolume.prototype = {
 		blockerdata.rsmNormaly = e;
 		blockerdata.rsmDepth = f;*/
 
-		for(var i = /*24172; i <24180*/0; i < blockerdata.numVpls; i++) {
+		for(var i = 0; i < blockerdata.numVpls; i++) {
 			// sample depth and normal from RSM
 			var samplePos = this.instanceIDtoPosition(i, blockerdata.width, blockerdata.height);
 			samplePos[0] += blockerdata.vpl[0] + (0.5 / blockerdata.width);
@@ -449,5 +458,68 @@ ngeometryVolume.prototype = {
 		texelValue = texImage[ y + x ];
 
 		return texelValue;
+	},
+	selectBlockers: function(slices) {
+		// select blockers from rsm & geometry buffer
+		// clear gvTexture2
+		for(var i = 0; i < this._dimx* this._dimy * this._dimz * 4; i++) {
+			this.gvTexture2[i] = 0.0;
+		}
+
+		var blockerdata = new selectBlockerData();
+		blockerdata.surfaceTex = this.gvTexture0;
+		blockerdata.rsmTex = this.gvTexture1;
+
+		blockerdata.gridDepth = this._dimz;
+
+		var invGridSize = [1.0/this._dimx, 1.0/this._dimy, 1.0/this._dimz];
+		blockerdata.halfTexelSize = invGridSize[2] * 0.5;
+		
+		blockerdata.slices = bufferList[1]._data;
+		blockerdata.primcount = this._dimz;
+		
+		this.selectGvShader(blockerdata);
+	},
+	selectGvShader: function(blockerdata) {
+		// test data
+		/*blockerdata.surfaceTex = c;
+		blockerdata.rsmTex = g;*/
+
+		// select geometry volume blocker shader
+		// get blocker information from depth_normal blocker & rsm blocker texture
+		// if two blocking potential in the same cell, select one base on its magnitude
+		for(var i = 0; i < this._dimx * this._dimy * this._dimz * 4; i+=4) {
+			// looks up texture value
+			var surfaceBlocker = [blockerdata.surfaceTex[i],
+								  blockerdata.surfaceTex[i+1],
+								  blockerdata.surfaceTex[i+2],
+								  blockerdata.surfaceTex[i+3]];
+			var surfaceBlockerMag = surfaceBlocker[0] * surfaceBlocker[0] +
+									surfaceBlocker[1] * surfaceBlocker[1] +
+									surfaceBlocker[2] * surfaceBlocker[2] +
+									surfaceBlocker[3] * surfaceBlocker[3];
+			
+			var rsmBlocker = [blockerdata.rsmTex[i],
+							  blockerdata.rsmTex[i+1],
+							  blockerdata.rsmTex[i+2],
+							  blockerdata.rsmTex[i+3]];
+			var rsmBlockerMag = rsmBlocker[0] * rsmBlocker[0] +
+								rsmBlocker[1] * rsmBlocker[1] +
+								rsmBlocker[2] * rsmBlocker[2] +
+								rsmBlocker[3] * rsmBlocker[3];
+
+			// check if rsm blocker is visible, surface blocker is visible because it comes from a surface in view space
+			var angle = rsmBlocker[0] * surfaceBlocker[0] +
+						rsmBlocker[1] * surfaceBlocker[1] +
+						rsmBlocker[2] * surfaceBlocker[2] +
+						rsmBlocker[3] * surfaceBlocker[3];
+			var blocker = rsmBlockerMag > surfaceBlockerMag ? rsmBlocker : surfaceBlocker;
+			blocker = angle > 0.0 ? blocker : surfaceBlocker;
+
+			this.gvTexture2[i] = blocker[0];
+			this.gvTexture2[i+1] = blocker[1];
+			this.gvTexture2[i+2] = blocker[2];
+			this.gvTexture2[i+3] = blocker[3];
+		}
 	}
 };
