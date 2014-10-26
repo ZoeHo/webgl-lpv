@@ -1,5 +1,5 @@
 var cubeFragmentShader =
-" precision mediump float;												\n" +
+	" precision mediump float;												\n" +
     " varying vec4 vColor;													\n" +
     "																		\n" +
 	" /*varying vec2 vTextureCoord;											\n" +

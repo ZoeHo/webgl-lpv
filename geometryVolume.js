@@ -20,7 +20,8 @@ function blockerData() {
 
 function rsmBlockerData() {
 	this.rsmDepth;
-	this.rsmNormal;
+	this.rsmNormalx;
+	this.rsmNormaly;
 	this.width;
 	this.height;
 	this.cellSizez;
@@ -344,6 +345,11 @@ ngeometryVolume.prototype = {
 
 	// inject2 - inject blocker from rsm
 	injectBlocker: function(rsm, vpls) {
+		// clear gvTexture1
+		for(var i = 0; i < this._dimx * this._dimy * this._dimz * 4; i++) {
+			this.gvTexture1[i] = 0.0;
+		}
+
 		var blockerdata = new rsmBlockerData();
 
 		// get blocker buffer data from rsm
@@ -352,11 +358,10 @@ ngeometryVolume.prototype = {
 
 		blockerdata.cellSizez = this._cellSize[2];
 		
-		/*
-		// needs to do get rsm depth & normal texture
-		// get rsm_depth texture [sampler: depth_tex] ( depth texture is one channel )
-		// get rsm_normal texture [sampler: normal_tex] ( normal texture is two channel )
-		*/
+		// get rsm texture
+		blockerdata.rsmNormalx = textureList[0].data;
+		blockerdata.rsmNormaly = textureList[1].data;
+		blockerdata.rsmDepth = textureList[3].data;
 
 		// geometry volume grid dimension = light grid dimension - 1
 		// projRsmtogvGrid.zw - get texel center
@@ -378,7 +383,71 @@ ngeometryVolume.prototype = {
         // glEnable(GL_BLEND);
 		// glBlendFunc(GL_ONE, GL_ONE);
 		
+		// draw points instanced, sample data from RSM and inject blocking potentials 
+		this.injectVertexShader(blockerdata);
+	},
+	injectVertexShader: function(blockerdata) {
+		// test data
+		/*blockerdata.rsmNormalx = d;
+		blockerdata.rsmNormaly = e;
+		blockerdata.rsmDepth = f;*/
 
-		window.o = blockerdata;
+		for(var i = /*24172; i <24180*/0; i < blockerdata.numVpls; i++) {
+			// sample depth and normal from RSM
+			var samplePos = this.instanceIDtoPosition(i, blockerdata.width, blockerdata.height);
+			samplePos[0] += blockerdata.vpl[0] + (0.5 / blockerdata.width);
+			samplePos[1] += blockerdata.vpl[1] + (0.5 / blockerdata.height);
+
+			var depth = this.getRsmTexValue(blockerdata.rsmDepth, samplePos, blockerdata.width, blockerdata.height);
+		
+			var normal = [];
+			normal[0] = this.getRsmTexValue(blockerdata.rsmNormalx, samplePos, blockerdata.width, blockerdata.height);
+			normal[1] = this.getRsmTexValue(blockerdata.rsmNormaly, samplePos, blockerdata.width, blockerdata.height);
+			normal[0] < -1.0 ? normal[0] = 0.0 : normal[0] = normal[0];
+			normal[1] < -1.0 ? normal[1] = 0.0 : normal[1] = normal[1];
+
+			var glPosition = [];
+			if( depth <= 0.0 ) {
+				// if vec2(depth) == vec2(0.0, 0.0), discard ,no geometry here
+				glPosition = [-1000.0, -1000.0, 0.0, 1.0];
+			} else {
+				// calculate position in geometry volume
+				var xpos = blockerdata.projRsmtogvGrid[0] * samplePos[0] + blockerdata.projRsmtogvGrid[2];
+				var ypos = blockerdata.projRsmtogvGrid[1] * samplePos[1] + blockerdata.projRsmtogvGrid[3];
+				var zpos = ( depth + blockerdata.cellSizez * 0.5 ) / blockerdata.cellSizez;
+				glPosition = [xpos, ypos, zpos, 1.0];
+				
+				var n2 = [];
+				n2[0] = normal[0] * normal[0];
+				n2[1] = normal[1] * normal[1];
+				normal[2] = Math.sqrt( 1.0 - n2[0] - n2[1] );
+
+				var blocker = [], blockerNormal;
+				blockerNormal = this.createBlocker(normal);
+				blocker[0] = blockerNormal[0] * blockerdata.pointWeight;
+				blocker[1] = blockerNormal[1] * blockerdata.pointWeight;
+				blocker[2] = blockerNormal[2] * blockerdata.pointWeight;
+				blocker[3] = blockerNormal[3] * blockerdata.pointWeight;
+				
+				// geometry shader & fragment shader
+				// input blocker & fill color texture.
+				this.geometryShader( glPosition, blocker, this.gvTexture1 );
+			}
+		}
+	},
+	getRsmTexValue: function(texImage, samplePos, width, height) {
+		// Use sample position to lookup color from texture
+		var texelValue = 0;
+		
+		// translate pos from (0, 0) - (1, 1) to (0, 0) - (512,512)
+		var y = Math.floor(samplePos[1] * height);
+		y = y * width;
+		var x = Math.floor(samplePos[0] * width);
+
+		// set value range (restriction)
+		// depth >= 0; normal in [-1, 1];
+		texelValue = texImage[ y + x ];
+
+		return texelValue;
 	}
 };
