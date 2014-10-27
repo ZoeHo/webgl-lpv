@@ -246,6 +246,8 @@ function drawTextureElement(textureID) {
 
     if(textureList[textureID].params.type === gl.FLOAT) {
         Texture.getFloatTexImage(textureID);
+    } else if(textureList[textureID].params.type === gl.UNSIGNED_BYTE) {
+        Texture.getUnsignedTexImage(textureID);
     }
 
     gl.copyTexImage2D(gl.TEXTURE_2D, 0, textureList[textureID].params.internalFormat, 0, 0, textureList[textureID].width, textureList[textureID].height, 0);

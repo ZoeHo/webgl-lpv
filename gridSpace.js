@@ -3,6 +3,9 @@ function gridSpace() {
     this.rotation = mat4.identity([]);
     this.projection = mat4.identity([]);
     this.translation = mat4.identity([]);
+
+    // light direction in grid space is fixed
+    this.lightDir = [0.0, 0.0, -1.0];
 }
 
 gridSpace.prototype = {
@@ -57,5 +60,8 @@ gridSpace.prototype = {
     },
     getProjection: function() {
         return this.projection;
+    },
+    getLightDir: function() {
+        return this.lightDir;
     }
 };

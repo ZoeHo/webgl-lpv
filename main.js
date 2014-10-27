@@ -71,9 +71,11 @@ function display() {
         grid.inject(geometryVolume, depthNormalBuffer);
         // inject blocking potentials from RSM
         grid.inject2(geometryVolume, rsm);
-        //  select blocking potentials from geometry volume 0 & 1
+        //  select blocking potentials from geometry volume 0 & 1 (based on magnitude)
         grid.selectGrid(geometryVolume);
-        // compare both geometry volumes and select blocking potentials based on magnitude
+        
+        // inject & propagate virtual point light
+        grid.injectVpls(rsm);
     }
 }
 

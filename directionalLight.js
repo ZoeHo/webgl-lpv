@@ -38,5 +38,8 @@ Light.prototype = {
     },
     getGridbox: function() {
         return this.grid_bbox;
+    },
+    getLightDirinGridSpace: function() {
+        return this.grid_space.getLightDir();
     }
 };
