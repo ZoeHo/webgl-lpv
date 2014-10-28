@@ -66,17 +66,17 @@ Texture.prototype = {
 };
 
 Texture.getUnsignedTexImage = function(textureID) {
-    var framebuffer = gl.createFramebuffer();
+    /*var framebuffer = gl.createFramebuffer();
     gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, textureList[textureID].texture, 0);
-
+    */
     // Read the contents of the framebuffer (data stores the pixel data)
     if( !textureList[textureID].data ){
         textureList[textureID].data = new Uint8Array(textureList[textureID].width * textureList[textureID].height * 4);
     }
     gl.readPixels(0, 0, textureList[textureID].width, textureList[textureID].height, gl.RGBA, gl.UNSIGNED_BYTE, textureList[textureID].data);
 
-    gl.deleteFramebuffer(framebuffer);
+    //gl.deleteFramebuffer(framebuffer);
 };
 
 Texture.getFloatTexImage = function(textureID) {

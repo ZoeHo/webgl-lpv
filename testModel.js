@@ -8,6 +8,7 @@ var depthNormalBuffer; // depth normal buffer
 var ilBuffer; // indirect light buffer
 var grid;
 var geometryVolume;
+var s = 0;
 
 function cleanup() {
     // correspond lpv/test_model::cleanup();
@@ -265,7 +266,7 @@ function drawtoRsm(light, rsm) {
     // drawtoRsmDepth
     renderRsmTex(light, rsm, 4, 3);
 
-    //drawTexture(rsm.getWidth(), rsm.getHeight(), 3);
+    //drawTexture(rsm.getWidth(), rsm.getHeight(), 2);
 }
 
 function drawTexture(width, height, textureID) {

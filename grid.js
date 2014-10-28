@@ -198,7 +198,7 @@ ngrid.prototype = {
 	},
 	injectVertexShader: function(shaderdata) {
 		// test data
-		var m = [];
+		/*var m = [];
 		for(var i = 0, j = 0; i < 512*512*3; i+=3, j+=4) {
 			m[j] = l[i];
 			m[j+1] = l[i+1];
@@ -208,7 +208,7 @@ ngrid.prototype = {
 		shaderdata.rsmNormalx = d;
 		shaderdata.rsmNormaly = e;
 		shaderdata.rsmColor = m;
-		shaderdata.rsmDepth = f;
+		shaderdata.rsmDepth = f;*/
 
 		if(this.intensityTex.length < 3) {
 			for(var i = 0; i < 3; i++) {
