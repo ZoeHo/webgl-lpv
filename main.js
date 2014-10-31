@@ -75,7 +75,7 @@ function display() {
         grid.selectGrid(geometryVolume);
         
         // inject & propagate virtual point light
-        grid.injectVpls(rsm);
+        grid.injectVpls(rsm, geometryVolume);
     }
 }
 

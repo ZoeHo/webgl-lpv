@@ -16,6 +16,22 @@ function injectData() {
 	this.rsmDepth;
 }
 
+function propagateData() {
+	this.blocking;
+	this.gridDepth;
+	this.invGridSize = [];
+	this.halfTexelSize;
+
+	this.coeffsRed;
+	this.coeffsGreen;
+	this.coeffsBlue;
+	this.geometryVolumeTexture;
+	this.projGridtoGv = [];
+
+	this.primcount;
+	this.slices = [];
+}
+
 function ngrid() {
 	this._iterations = 0;
 
@@ -49,6 +65,7 @@ function ngrid() {
 	this.propagationShader;
 	this.injectVplShader;
 
+	this.geometryTexture;
 	this.intensityTex;
 }
 
@@ -158,7 +175,8 @@ ngrid.prototype = {
 	selectGrid: function(geometryVolume) {
 		geometryVolume.selectBlockers(this.slices);
 	},
-	injectVpls: function(rsm) {
+	injectVpls: function(rsm, geometryVolume) {
+		this.geometryTexture = geometryVolume.gvTexture2;
 		var injectdata = new injectData();
 
 		// get inject data
@@ -188,13 +206,12 @@ ngrid.prototype = {
 		// inject vertex shader
 		this.injectVertexShader(injectdata);
 		
-		/*
+		
 		// propagate & accumulate
-		if( iterations ) {
+		if( this._iterations > 0 ) {
 			// call propagate & accumulate function
-			propagate_accumulate_cpuBegin();
+			this.propagateAccumulate();
 		}
-		*/
 	},
 	injectVertexShader: function(shaderdata) {
 		// test data
@@ -405,5 +422,866 @@ ngrid.prototype = {
 		color[2] = texImage[x + y + 2];
 
 		return color;		
+	},
+	propagateAccumulate: function() {
+		// initial light intensity texture
+		if(this.intensityTex.length < 9) {
+			for(var i = 0; i < 6; i++) {
+				var intensity = new Float32Array(this._dimx * this._dimy * this._dimz * 4);
+				this.intensityTex.push(intensity);
+			}
+		}
+
+		var sourceTex = [], destTex = [];
+		for( var i = 0; i < 3; i++ ) {
+			sourceTex.push(this.intensityTex[i]);
+			destTex.push(this.intensityTex[i+3]);
+		}
+		
+		// stage 0 propagate: source = intensity 0, destination = intensity 1
+		this.propagate(true, sourceTex, destTex);
+		/*
+		// stage 0 propagate: source = intensity 0, destination = intensity 1
+		propagate_cpuBegin( true, sourceTex, destTex );
+		*/
+	},
+	propagate: function(firstIteration, sourceTex, destTex) {
+		// first iterations propagation : propagates without checking
+		// second - eighth iterations : propagates with checking
+		// blocking potentials to avoid self shadowing
+		var shaderdata = new propagateData();
+
+		if(firstIteration === true) {
+			shaderdata.blocking = false; 	// propagation no blocking
+		} else {
+			shaderdata.blocking = true; 	// propagation
+		}
+		
+		shaderdata.gridDepth = this._dimz;
+		shaderdata.invGridSize = [1.0 / this._dimx, 1.0 / this._dimy, 1.0 / this._dimz];
+		shaderdata.halfTexelSize = shaderdata.invGridSize[2] * 0.5;
+
+		shaderdata.coeffsRed = sourceTex[0];
+		shaderdata.coeffsGreen = sourceTex[1];
+		shaderdata.coeffsBlue = sourceTex[2];
+		
+		if(shaderdata.blocking === true) {
+			// use geometry volume which prevents light from being propagated through blocking geometry
+			shaderdata.geometryVolumeTexture = this.geometryTexture;
+			shaderdata.projGridtoGv.push([this._dimx / (this._dimx + 1),
+										  this._dimy / (this._dimy + 1),
+										  this._dimz / (this._dimz + 1)]);
+			shaderdata.projGridtoGv.push([0.5 / (this._dimx + 1), 
+										  0.5 / (this._dimy + 1), 
+										  0.5 / (this._dimz + 1)]);
+		}
+
+		shaderdata.slices = bufferList[1]._data;
+		shaderdata.primcount = this._dimz;
+		
+		this.propagateFS(shaderdata, destTex);
+		/*
+		// propagate shader start
+		propagateFS( shaderdata, destTex );
+		*/
+	},
+	propagateFS: function(shaderdata, destTex) {
+		// propagate shader
+		// after inject vpls, we need to propagate the vpls into grid
+		// use position of element in texture array as glPosition,
+		// and let glPosition(x,y,z) divide dim of light grid volume to get texture coordinate.
+
+		// first iteration test data
+		/*shaderdata.coeffsRed = initR;
+		shaderdata.coeffsGreen = initG;
+		shaderdata.coeffsBlue = initB;
+		shaderdata.geometryVolumeTexture = h;*/
+
+		for(var i = 0; i < this._dimx * this._dimy * this._dimz * 4; i+=4) {
+			// calculate texture coordinate position
+			var texCoord = this.getTexCoord(i, shaderdata.invGridSize, shaderdata.halfTexelSize);
+			
+			// calculate SH
+			var totalVplRed = [0.0, 0.0, 0.0, 0.0];
+			var totalVplGreen = [0.0, 0.0, 0.0, 0.0];
+			var totalVplBlue = [0.0, 0.0, 0.0, 0.0];
+			var vplRed = [0.0, 0.0, 0.0, 0.0], vplGreen = [0.0, 0.0, 0.0, 0.0], vplBlue = [0.0, 0.0, 0.0, 0.0];
+			
+			var samplePosNeg = [];
+			samplePosNeg[0] = texCoord[0] - shaderdata.invGridSize[0];
+			samplePosNeg[1] = texCoord[1] - shaderdata.invGridSize[1];
+			samplePosNeg[2] = texCoord[2] - shaderdata.invGridSize[2];
+
+			var samplePosPos = [];
+			samplePosPos[0] = texCoord[0] + shaderdata.invGridSize[0];
+			samplePosPos[1] = texCoord[1] + shaderdata.invGridSize[1];
+			samplePosPos[2] = texCoord[2] + shaderdata.invGridSize[2];
+			
+			var gridSamplePos = [0.0, 0.0, 0.0];
+			var redIn = [0.0, 0.0, 0.0, 0.0], greenIn = [0.0, 0.0, 0.0, 0.0], blueIn = [0.0, 0.0, 0.0, 0.0];
+			var sign;
+			var lightIn = [], vplRGB = [];
+			
+			lightIn.push(redIn, greenIn, blueIn);
+			vplRGB.push(vplRed, vplGreen, vplBlue);
+
+			// get light intensity sh vectors from the cell left to this cell
+			gridSamplePos = [samplePosNeg[0], texCoord[1], texCoord[2]];
+			this.getVpls(shaderdata, gridSamplePos, lightIn[0], lightIn[1], lightIn[2]);
+			
+			// #ifndef NO_BLOCKING = propagate with blocking potential
+			if(shaderdata.blocking === true) {
+				// sample pos of blocking potential is between both cells
+				gridSamplePos[0] += shaderdata.halfTexelSize;
+				var blockingPotential = this.sampleBPfromLeft(shaderdata.geometryVolumeTexture,
+															  shaderdata.projGridtoGv,
+															  gridSamplePos);
+				this.applyBlockingPotential(blockingPotential, [0.88622689, 0.0, 0.0, -1.0233266],
+											lightIn[0], lightIn[1], lightIn[2]);
+			}
+
+			// SH parameter
+			var shCenteralDir = [];
+			var vpl = [];
+			var solidAngle = [];
+
+			this.getLightFromLeft(shCenteralDir, vpl, solidAngle);
+			this.propagateLight(vplRGB, lightIn, shCenteralDir, vpl, solidAngle);
+			(0.0 > samplePosNeg[0]) ? sign = 0 : sign = 1;
+			totalVplRed = [vplRGB[0][0] * sign, vplRGB[0][1] * sign, vplRGB[0][2] * sign, vplRGB[0][3] * sign];
+			totalVplGreen = [vplRGB[1][0] * sign, vplRGB[1][1] * sign, vplRGB[1][2] * sign, vplRGB[1][3] * sign];
+			totalVplBlue = [vplRGB[2][0] * sign, vplRGB[2][1] * sign, vplRGB[2][2] * sign, vplRGB[2][3] * sign]
+			// from left cell end.
+
+			// get light intensity sh vectors from the cell right to this cell
+			gridSamplePos = [samplePosPos[0], texCoord[1], texCoord[2]];
+			this.getVpls(shaderdata, gridSamplePos, lightIn[0], lightIn[1], lightIn[2]);
+			
+			// #ifndef NO_BLOCKING
+			if(shaderdata.blocking === true) {
+				//sample pos of blocking potential is between both cells
+				gridSamplePos[0] -= shaderdata.halfTexelSize;
+				blockingPotential = this.sampleBPfromRight(shaderdata.geometryVolumeTexture,
+														   shaderdata.projGridtoGv,
+														   gridSamplePos);
+				this.applyBlockingPotential(blockingPotential, [0.88622689, 0.0, 0.0, 1.0233266],
+											lightIn[0], lightIn[1], lightIn[2]);
+			}
+			// #endif
+			this.getLightFromRight(shCenteralDir, vpl, solidAngle);
+			this.propagateLight(vplRGB, lightIn, shCenteralDir, vpl, solidAngle);
+			
+			(samplePosPos[0] > 1.0) ? sign = 0.0 : sign = 1.0;
+			var temp = [vplRGB[0][0] * sign, vplRGB[0][1] * sign, vplRGB[0][2] * sign, vplRGB[0][3] * sign];
+			totalVplRed[0] += temp[0]; totalVplRed[1] += temp[1]; totalVplRed[2] += temp[2]; totalVplRed[3] += temp[3];	
+			
+			temp = [vplRGB[1][0] * sign, vplRGB[1][1] * sign, vplRGB[1][2] * sign, vplRGB[1][3] * sign];
+			totalVplGreen[0] += temp[0]; totalVplGreen[1] += temp[1]; totalVplGreen[2] += temp[2]; totalVplGreen[3] += temp[3];
+			
+			temp = [vplRGB[2][0] * sign, vplRGB[2][1] * sign, vplRGB[2][2] * sign, vplRGB[2][3] * sign];
+			totalVplBlue[0] += temp[0]; totalVplBlue[1] += temp[1]; totalVplBlue[2] += temp[2]; totalVplBlue[3] += temp[3];
+			// from right cell end.
+	
+			// get light intensity sh vectors from the cell above this cell
+			gridSamplePos = [texCoord[0], samplePosPos[1], texCoord[2]];
+			this.getVpls(shaderdata, gridSamplePos, lightIn[0], lightIn[1], lightIn[2]);		
+			
+			// #ifndef NO_BLOCKING
+			if(shaderdata.blocking === true) {
+				gridSamplePos[1] -= shaderdata.halfTexelSize;
+				if(gridSamplePos[1] == 1) {
+					gridSamplePos[1] -= shaderdata.halfTexelSize;
+					getVpls(shaderdata, gridSamplePos, lightIn[0], lightIn[1], lightIn[2]);
+				}
+				blockingPotential = this.sampleBPfromAbove(shaderdata.geometryVolumeTexture,
+														   shaderdata.projGridtoGv,
+														   gridSamplePos);
+				this.applyBlockingPotential(blockingPotential, [0.88622689, 0.0, -1.0233266, 0.0],
+											lightIn[0], lightIn[1], lightIn[2]);
+			}
+			// #endif
+			this.getLightFromAbove(shCenteralDir, vpl, solidAngle);
+			this.propagateLight(vplRGB, lightIn, shCenteralDir, vpl, solidAngle);
+		
+			(samplePosPos[1] > 1.0) ? sign = 0.0 : sign = 1.0;
+			temp = [vplRGB[0][0] * sign, vplRGB[0][1] * sign, vplRGB[0][2] * sign, vplRGB[0][3] * sign];
+			totalVplRed[0] += temp[0]; totalVplRed[1] += temp[1]; totalVplRed[2] += temp[2]; totalVplRed[3] += temp[3];	
+			
+			temp = [vplRGB[1][0] * sign, vplRGB[1][1] * sign, vplRGB[1][2] * sign, vplRGB[1][3] * sign];
+			totalVplGreen[0] += temp[0]; totalVplGreen[1] += temp[1]; totalVplGreen[2] += temp[2]; totalVplGreen[3] += temp[3];
+			
+			temp = [vplRGB[2][0] * sign, vplRGB[2][1] * sign, vplRGB[2][2] * sign, vplRGB[2][3] * sign];
+			totalVplBlue[0] += temp[0]; totalVplBlue[1] += temp[1]; totalVplBlue[2] += temp[2]; totalVplBlue[3] += temp[3];
+			// from above cell end.
+
+			// get light intensity sh vectors from the cell below this cell
+			gridSamplePos = [texCoord[0], samplePosNeg[1], texCoord[2]];
+			this.getVpls(shaderdata, gridSamplePos, lightIn[0], lightIn[1], lightIn[2]);
+			
+			// #ifndef NO_BLOCKING
+			if(shaderdata.blocking === true) {
+				gridSamplePos[1] += shaderdata.halfTexelSize;
+				if(gridSamplePos[1] == 0) {
+					this.getVpls(shaderdata, gridSamplePos, lightIn[0], lightIn[1], lightIn[2]);		
+				}
+				blockingPotential = this.sampleBPfromBelow(shaderdata.geometryVolumeTexture,
+														   shaderdata.projGridtoGv,
+														   gridSamplePos);
+				this.applyBlockingPotential(blockingPotential, [0.88622689, 0.0, 1.0233266, 0.0],
+											lightIn[0], lightIn[1], lightIn[2]);
+			}
+			// #endif
+			this.getLightFromBelow(shCenteralDir, vpl, solidAngle);
+			this.propagateLight(vplRGB, lightIn, shCenteralDir, vpl, solidAngle);
+
+			(0.0 >samplePosNeg[1]) ? sign = 0.0 : sign = 1.0;
+			temp = [vplRGB[0][0] * sign, vplRGB[0][1] * sign, vplRGB[0][2] * sign, vplRGB[0][3] * sign];
+			totalVplRed[0] += temp[0]; totalVplRed[1] += temp[1]; totalVplRed[2] += temp[2]; totalVplRed[3] += temp[3];	
+			
+			temp = [vplRGB[1][0] * sign, vplRGB[1][1] * sign, vplRGB[1][2] * sign, vplRGB[1][3] * sign];
+			totalVplGreen[0] += temp[0]; totalVplGreen[1] += temp[1]; totalVplGreen[2] += temp[2]; totalVplGreen[3] += temp[3];
+			
+			temp = [vplRGB[2][0] * sign, vplRGB[2][1] * sign, vplRGB[2][2] * sign, vplRGB[2][3] * sign];
+			totalVplBlue[0] += temp[0]; totalVplBlue[1] += temp[1]; totalVplBlue[2] += temp[2]; totalVplBlue[3] += temp[3];
+			// from below cell end.
+
+			// get light intensity sh vectors from the cell behind this cell
+			gridSamplePos = [texCoord[0], texCoord[1], samplePosNeg[2]];
+			this.getVpls(shaderdata, gridSamplePos, lightIn[0], lightIn[1], lightIn[2]);
+			
+			//#ifndef NO_BLOCKING
+			if(shaderdata.blocking == true) {
+				gridSamplePos[2] += shaderdata.halfTexelSize;
+				blockingPotential = this.sampleBPfromBehind(shaderdata.geometryVolumeTexture,
+														    shaderdata.projGridtoGv,
+														    gridSamplePos);
+				this.applyBlockingPotential(blockingPotential, [0.88622689, 1.0233266, 0.00000000, -0.00000000],
+											lightIn[0], lightIn[1], lightIn[2]);
+			}
+			// #endif
+
+			this.getLightFromBehind(shCenteralDir, vpl, solidAngle);
+			this.propagateLight(vplRGB, lightIn, shCenteralDir, vpl, solidAngle);
+			
+			(0.0 > samplePosNeg[2]) ? sign = 0.0 : sign = 1.0;
+			temp = [vplRGB[0][0] * sign, vplRGB[0][1] * sign, vplRGB[0][2] * sign, vplRGB[0][3] * sign];
+			totalVplRed[0] += temp[0]; totalVplRed[1] += temp[1]; totalVplRed[2] += temp[2]; totalVplRed[3] += temp[3];	
+			
+			temp = [vplRGB[1][0] * sign, vplRGB[1][1] * sign, vplRGB[1][2] * sign, vplRGB[1][3] * sign];
+			totalVplGreen[0] += temp[0]; totalVplGreen[1] += temp[1]; totalVplGreen[2] += temp[2]; totalVplGreen[3] += temp[3];
+			
+			temp = [vplRGB[2][0] * sign, vplRGB[2][1] * sign, vplRGB[2][2] * sign, vplRGB[2][3] * sign];
+			totalVplBlue[0] += temp[0]; totalVplBlue[1] += temp[1]; totalVplBlue[2] += temp[2]; totalVplBlue[3] += temp[3];
+			// from behind cell end.
+			
+			// get light intensity sh vectors from the cell in front of this cell
+			gridSamplePos = [texCoord[0], texCoord[1], samplePosPos[2]];
+			this.getVpls(shaderdata, gridSamplePos, lightIn[0], lightIn[1], lightIn[2]);
+
+			// #ifndef NO_BLOCKING
+			if(shaderdata.blocking == true) {
+				gridSamplePos[2] -= shaderdata.halfTexelSize;
+				if(gridSamplePos[2] == 1) {
+					var samplePos = [];
+					samplePos.push.apply(samplePos, gridSamplePos);
+					samplePos[2] = 0;
+					this.getVpls(shaderdata, samplePos, lightIn[0], lightIn[1], lightIn[2]);
+				}
+				blockingPotential = this.sampleBPfromFront(shaderdata.geometryVolumeTexture,
+														    shaderdata.projGridtoGv,
+														    gridSamplePos);
+				this.applyBlockingPotential(blockingPotential, [0.88622689, -1.0233266, 0.00000000, -0.00000000],
+											lightIn[0], lightIn[1], lightIn[2]);
+			}
+			// #endif
+
+			this.getLightFromFront(shCenteralDir, vpl, solidAngle);
+			this.propagateLight(vplRGB, lightIn, shCenteralDir, vpl, solidAngle);
+			
+			(samplePosPos[2] > 1.0) ? sign = 0.0 : sign = 1.0;
+			temp = [vplRGB[0][0] * sign, vplRGB[0][1] * sign, vplRGB[0][2] * sign, vplRGB[0][3] * sign];
+			totalVplRed[0] += temp[0]; totalVplRed[1] += temp[1]; totalVplRed[2] += temp[2]; totalVplRed[3] += temp[3];	
+			
+			temp = [vplRGB[1][0] * sign, vplRGB[1][1] * sign, vplRGB[1][2] * sign, vplRGB[1][3] * sign];
+			totalVplGreen[0] += temp[0]; totalVplGreen[1] += temp[1]; totalVplGreen[2] += temp[2]; totalVplGreen[3] += temp[3];
+			
+			temp = [vplRGB[2][0] * sign, vplRGB[2][1] * sign, vplRGB[2][2] * sign, vplRGB[2][3] * sign];
+			totalVplBlue[0] += temp[0]; totalVplBlue[1] += temp[1]; totalVplBlue[2] += temp[2]; totalVplBlue[3] += temp[3];
+			// from front cell end.
+
+			// normalize
+			totalVplRed = [totalVplRed[0]/Math.PI, totalVplRed[1]/Math.PI, totalVplRed[2]/Math.PI, totalVplRed[3]/Math.PI];
+			totalVplGreen = [totalVplGreen[0]/Math.PI, totalVplGreen[1]/Math.PI, totalVplGreen[2]/Math.PI, totalVplGreen[3]/Math.PI];
+			totalVplBlue = [totalVplBlue[0]/Math.PI, totalVplBlue[1]/Math.PI, totalVplBlue[2]/Math.PI, totalVplBlue[3]/Math.PI];
+			
+			// store light intensity as SH vectors
+			destTex[0][i] = totalVplRed[0];
+			destTex[0][i+1] = totalVplRed[1];
+			destTex[0][i+2] = totalVplRed[2];
+			destTex[0][i+3] = totalVplRed[3];
+
+			destTex[1][i] = totalVplGreen[0];
+			destTex[1][i+1] = totalVplGreen[1];
+			destTex[1][i+2] = totalVplGreen[2];
+			destTex[1][i+3] = totalVplGreen[3];
+			
+			destTex[2][i] = totalVplBlue[0];
+			destTex[2][i+1] = totalVplBlue[1];
+			destTex[2][i+2] = totalVplBlue[2];
+			destTex[2][i+3] = totalVplBlue[3];
+		}
+	},
+	getTexCoord: function(instanceID, invGridSize, halfTexelSize) {
+		// calculate glPosition
+		var posx, posy, posz;
+		posz = Math.floor( instanceID / (this._dimx * this._dimy * 4) );
+		posy = Math.floor( (instanceID - (posz * this._dimx * this._dimy * 4)) / (this._dimx * 4) );
+		posx = Math.floor( (instanceID - (posz * this._dimx * this._dimy * 4) - (posy * this._dimx * 4)) / 4 );
+		
+		// translate pos in gridCoord.(0, 0) - (15, 15) to texCoord. (0, 0) - (1, 1)
+		var texCoord = [];
+		texCoord[0] = posx * invGridSize[0] + halfTexelSize;
+		texCoord[1] = posy * invGridSize[1] + halfTexelSize;
+		texCoord[2] = posz * invGridSize[2];
+
+		texCoord[2] += invGridSize[2] * 0.5;
+		return texCoord;
+	},
+	getVpls: function(shaderdata, sourceCell, red, green, blue) {
+		red.splice(0, red.length);
+		green.splice(0, green.length);
+		blue.splice(0, blue.length);
+		var vplColor;
+
+		// read sh vectors storing the light intensity
+		vplColor = this.getFloatTexValue(shaderdata.coeffsRed, sourceCell, this._dimx, this._dimy, this._dimz);
+		red.push.apply(red, vplColor);
+		vplColor = this.getFloatTexValue(shaderdata.coeffsGreen, sourceCell, this._dimx, this._dimy, this._dimz);
+		green.push.apply(green, vplColor);
+		vplColor = this.getFloatTexValue(shaderdata.coeffsBlue, sourceCell, this._dimx, this._dimy, this._dimz);
+		blue.push.apply(blue, vplColor);
+	},
+	getFloatTexValue: function(texImage, texCoord, width, height, depth) {
+		var texValue = [0.0, 0.0, 0.0, 0.0];
+		var z = Math.floor(texCoord[2] * depth);
+		var y = Math.floor(texCoord[1] * height);
+		var x = Math.floor(texCoord[0] * width);
+		
+		z = z * width * height * 4;
+		y = y * width * 4;
+		x = x * 4;
+
+		if( ((x+y+z < 0)) || ((x+y+z) >= (width * height * depth * 4)) ) {
+			texValue = [0.0, 0.0, 0.0, 0.0];
+		} else {
+			texValue[0] = texImage[x + y + z + 0];
+			texValue[1] = texImage[x + y + z + 1];
+			texValue[2] = texImage[x + y + z + 2];
+			texValue[3] = texImage[x + y + z + 3];
+		}
+
+		return texValue;
+	},
+	sampleBPfromLeft: function(texImage, projGridtoGv, samplePos) {
+		// sample blocking potential from the left cell
+		// x non-change; y non-change / next y; z non-change / next z
+		var gvSamplePos = [0.0, 0.0, 0.0];
+		gvSamplePos[0] = samplePos[0] * projGridtoGv[0][0];
+
+		var blocking = [0.0, 0.0, 0.0, 0.0];
+		var temp = [0.0, 0.0, 0.0, 0.0];
+
+		// step 1	x, y+1, z+1
+		gvSamplePos[1] = samplePos[1] * projGridtoGv[0][1] + projGridtoGv[1][1];
+		gvSamplePos[2] = samplePos[2] * projGridtoGv[0][2] + projGridtoGv[1][2];
+		temp = this.getFloatTexValue(texImage, gvSamplePos, (this._dimx+1), (this._dimy+1), (this._dimz+1));
+		this.vplAddContribution(blocking, temp);
+		
+		// step 2	x, y, z+1
+		gvSamplePos[1] = samplePos[1] * projGridtoGv[0][1];
+		gvSamplePos[2] = samplePos[1] * projGridtoGv[0][2] + projGridtoGv[1][2];
+		temp = this.getFloatTexValue(texImage, gvSamplePos, (this._dimx+1), (this._dimy+1), (this._dimz+1));
+		this.vplAddContribution(blocking, temp);
+		
+		// step 3	x, y+1, z
+		gvSamplePos[1] = samplePos[1] * projGridtoGv[0][1] + projGridtoGv[1][1];
+		gvSamplePos[2] = samplePos[2] * projGridtoGv[0][2];
+		temp = this.getFloatTexValue(texImage, gvSamplePos, (this._dimx+1), (this._dimy+1), (this._dimz+1));
+		this.vplAddContribution(blocking, temp);
+		
+		// step 4	x, y, z
+		gvSamplePos[1] = samplePos[1] * projGridtoGv[0][1];
+		gvSamplePos[2] = samplePos[2] * projGridtoGv[0][2];
+		temp = this.getFloatTexValue(texImage, gvSamplePos, (this._dimx+1), (this._dimy+1), (this._dimz+1));
+		this.vplAddContribution(blocking, temp);
+		
+		// average the value
+		blocking = [blocking[0] / 4, blocking[1] / 4, blocking[2] / 4, blocking[3] / 4];
+		return blocking;
+	},
+	sampleBPfromRight: function(texImage, projGridtoGv, samplePos) {
+		// sample blocking potential from the right cell
+		// next x; y non-change / next y; z non-change / next z	
+		var gvSamplePos = [];
+		gvSamplePos[0] = samplePos[0] * projGridtoGv[0][0] + projGridtoGv[1][0];
+
+		var blocking = [0.0, 0.0, 0.0, 0.0];
+		var temp = []; 
+		// step 1	x+1, y+1, z+1
+		gvSamplePos[1] = samplePos[1] * projGridtoGv[0][1] + projGridtoGv[1][1];
+		gvSamplePos[2] = samplePos[2] * projGridtoGv[0][2] + projGridtoGv[1][2];
+		temp = this.getFloatTexValue(texImage, gvSamplePos, (this._dimx+1), (this._dimy+1), (this._dimz+1));
+		this.vplAddContribution(blocking, temp);
+		
+		// step 2	x+1, y, z+1
+		gvSamplePos[1] = samplePos[1] * projGridtoGv[0][1];
+		gvSamplePos[2] = samplePos[2] * projGridtoGv[0][2] + projGridtoGv[1][2];
+		temp = this.getFloatTexValue(texImage, gvSamplePos, (this._dimx+1), (this._dimy+1), (this._dimz+1));
+		this.vplAddContribution(blocking, temp);
+
+		// step 3	x+1, y+1, z
+		gvSamplePos[1] = samplePos[1] * projGridtoGv[0][1] + projGridtoGv[1][1];
+		gvSamplePos[2] = samplePos[2] * projGridtoGv[0][2];
+		temp = this.getFloatTexValue(texImage, gvSamplePos, (this._dimx+1), (this._dimy+1), (this._dimz+1));
+		this.vplAddContribution(blocking, temp);
+		
+		// step 4	x+1, y, z
+		gvSamplePos[1] = samplePos[1] * projGridtoGv[0][1];
+		gvSamplePos[2] = samplePos[2] * projGridtoGv[0][2];
+		temp = this.getFloatTexValue(texImage, gvSamplePos, (this._dimx+1), (this._dimy+1), (this._dimz+1));
+		this.vplAddContribution(blocking, temp);
+		
+		// average the value
+		blocking = [blocking[0] / 4, blocking[1] / 4, blocking[2] / 4, blocking[3] / 4];
+		return blocking;
+	},
+	sampleBPfromAbove: function(texImage, projGridtoGv, samplePos) {
+		// sample blocking potential from the above cell
+		// x non-change / next x; next y; z non-change / next z
+		var gvSamplePos = [];
+		gvSamplePos[1] = samplePos[1] * projGridtoGv[0][1] + projGridtoGv[1][1];
+
+		var blocking = [0.0, 0.0, 0.0, 0.0];
+		var temp = [];
+
+		// step 1	x+1, y+1, z+1
+		gvSamplePos[0] = samplePos[0] * projGridtoGv[0][0] + projGridtoGv[1][0];
+		gvSamplePos[2] = samplePos[2] * projGridtoGv[0][2] + projGridtoGv[1][2];
+		temp = this.getFloatTexValue(texImage, gvSamplePos, (this._dimx+1), (this._dimy+1), (this._dimz+1));
+		this.vplAddContribution(blocking, temp);
+		
+		// step 2	x, y+1, z+1
+		gvSamplePos[0] = samplePos[0] * projGridtoGv[0][0];
+		gvSamplePos[2] = samplePos[2] * projGridtoGv[0][2] + projGridtoGv[1][2];
+		temp = this.getFloatTexValue(texImage, gvSamplePos, (this._dimx+1), (this._dimy+1), (this._dimz+1));
+		this.vplAddContribution(blocking, temp);
+		
+		// step 3	x+1, y+1, z
+		gvSamplePos[0] = samplePos[0] * projGridtoGv[0][0] + projGridtoGv[1][0];
+		gvSamplePos[2] = samplePos[2] * projGridtoGv[0][2];
+		temp = this.getFloatTexValue(texImage, gvSamplePos, (this._dimx+1), (this._dimy+1), (this._dimz+1));
+		this.vplAddContribution(blocking, temp);
+		
+		// step 4	x, y+1, z
+		gvSamplePos[0] = samplePos[0] * projGridtoGv[0][0];
+		gvSamplePos[2] = samplePos[2] * projGridtoGv[0][2];
+		temp = this.getFloatTexValue(texImage, gvSamplePos, (this._dimx+1), (this._dimy+1), (this._dimz+1));
+		this.vplAddContribution(blocking, temp);
+		
+		// average the value
+		blocking = [blocking[0] / 4, blocking[1] / 4, blocking[2] / 4, blocking[3] / 4];
+		return blocking;
+	},
+	sampleBPfromBelow: function(texImage, projGridtoGv, samplePos) {
+		// sample blocking potential from the below cell
+		// x non-change / next x; y non-shange; z non-change / next z
+		
+		var gvSamplePos = [];
+		gvSamplePos[1] = samplePos[1] * projGridtoGv[0][1];
+		
+		var blocking = [0.0, 0.0, 0.0, 0.0];
+		var temp = [];
+		
+		// step 1	x+1, y, z+1
+		gvSamplePos[0] = samplePos[0] * projGridtoGv[0][0] + projGridtoGv[1][0];
+		gvSamplePos[2] = samplePos[2] * projGridtoGv[0][2] + projGridtoGv[1][2];
+		temp = this.getFloatTexValue(texImage, gvSamplePos, (this._dimx+1), (this._dimy+1), (this._dimz+1));
+		this.vplAddContribution(blocking, temp);
+		
+		// step 2	x, y, z+1
+		gvSamplePos[0] = samplePos[0] * projGridtoGv[0][0];
+		gvSamplePos[2] = samplePos[2] * projGridtoGv[0][2] + projGridtoGv[1][2];
+		temp = this.getFloatTexValue(texImage, gvSamplePos, (this._dimx+1), (this._dimy+1), (this._dimz+1));
+		this.vplAddContribution(blocking, temp);
+		
+		// step 3	x+1, y, z
+		gvSamplePos[0] = samplePos[0] * projGridtoGv[0][0] + projGridtoGv[1][0];
+		gvSamplePos[2] = samplePos[2] * projGridtoGv[0][2];
+		temp = this.getFloatTexValue(texImage, gvSamplePos, (this._dimx+1), (this._dimy+1), (this._dimz+1));
+		this.vplAddContribution(blocking, temp);
+
+		// step 4	x, y, z
+		gvSamplePos[0] = samplePos[0] * projGridtoGv[0][0];
+		gvSamplePos[2] = samplePos[2] * projGridtoGv[0][2];
+		temp = this.getFloatTexValue(texImage, gvSamplePos, (this._dimx+1), (this._dimy+1), (this._dimz+1));
+		this.vplAddContribution(blocking, temp);
+		
+		// average the value
+		blocking = [blocking[0] / 4, blocking[1] / 4, blocking[2] / 4, blocking[3] / 4];
+		return blocking;
+	},
+	sampleBPfromBehind: function(texImage, projGridtoGv, samplePos) {
+		// sample blocking potential from the behind cell
+		// x non-change / next x; y non-shange / next y; z non-change
+		var gvSamplePos = [];
+		gvSamplePos[2] = samplePos[2] * projGridtoGv[0][2];
+
+		var blocking = [0.0, 0.0, 0.0, 0.0];
+		var temp = [];
+		
+		// step 1	x+1, y+1, z
+		gvSamplePos[0] = samplePos[0] * projGridtoGv[0][0] + projGridtoGv[1][0];
+		gvSamplePos[1] = samplePos[1] * projGridtoGv[0][1] + projGridtoGv[1][1];
+		temp = this.getFloatTexValue(texImage, gvSamplePos, (this._dimx+1), (this._dimy+1), (this._dimz+1));
+		this.vplAddContribution(blocking, temp);
+		
+		// step 2	x, y+1, z
+		gvSamplePos[0] = samplePos[0] * projGridtoGv[0][0];
+		gvSamplePos[1] = samplePos[1] * projGridtoGv[0][1] + projGridtoGv[1][1];
+		temp = this.getFloatTexValue(texImage, gvSamplePos, (this._dimx+1), (this._dimy+1), (this._dimz+1));
+		this.vplAddContribution(blocking, temp);
+		
+		// step 3	x+1, y, z
+		gvSamplePos[0] = samplePos[0] * projGridtoGv[0][0] + projGridtoGv[1][0];
+		gvSamplePos[1] = samplePos[1] * projGridtoGv[0][1];
+		temp = this.getFloatTexValue(texImage, gvSamplePos, (this._dimx+1), (this._dimy+1), (this._dimz+1));
+		this.vplAddContribution(blocking, temp);
+		
+		// step 4	x, y, z
+		gvSamplePos[0] = samplePos[0] * projGridtoGv[0][0];
+		gvSamplePos[1] = samplePos[1] * projGridtoGv[0][1];
+		temp = this.getFloatTexValue(texImage, gvSamplePos, (this._dimx+1), (this._dimy+1), (this._dimz+1));
+		this.vplAddContribution(blocking, temp);
+		
+		// average the value
+		blocking = [blocking[0] / 4, blocking[1] / 4, blocking[2] / 4, blocking[3] / 4];
+		return blocking;
+	},
+	sampleBPfromFront: function (texImage, projGridtoGv, samplePos) {
+		// sample blocking potential from the front cell
+		// x non-change / next x; y non-shange / next y; next z
+		var gvSamplePos = [];
+		gvSamplePos[2] = samplePos[2] * projGridtoGv[0][2] + projGridtoGv[1][2];
+
+		if( gvSamplePos[2] == 1 ) {
+			gvSamplePos[2] = 0;
+		}
+
+		var blocking = [0.0, 0.0, 0.0, 0.0];
+		var temp = [];
+		
+		// step 1	x+1, y+1, z+1
+		gvSamplePos[0] = samplePos[0] * projGridtoGv[0][0] + projGridtoGv[1][0];
+		gvSamplePos[1] = samplePos[1] * projGridtoGv[0][1] + projGridtoGv[1][1];
+		temp = this.getFloatTexValue(texImage, gvSamplePos, (this._dimx+1), (this._dimy+1), (this._dimz+1));
+		this.vplAddContribution(blocking, temp);
+
+		// step 2	x, y+1, z+1
+		gvSamplePos[0] = samplePos[0] * projGridtoGv[0][0];
+		gvSamplePos[1] = samplePos[1] * projGridtoGv[0][1] + projGridtoGv[1][1];
+		temp = this.getFloatTexValue(texImage, gvSamplePos, (this._dimx+1), (this._dimy+1), (this._dimz+1));
+		this.vplAddContribution(blocking, temp);
+		
+		// step 3	x+1, y, z+1
+		gvSamplePos[0] = samplePos[0] * projGridtoGv[0][0] + projGridtoGv[1][0];
+		gvSamplePos[1] = samplePos[1] * projGridtoGv[0][1];
+		temp = this.getFloatTexValue(texImage, gvSamplePos, (this._dimx+1), (this._dimy+1), (this._dimz+1));
+		this.vplAddContribution(blocking, temp);
+		
+		// step 4	x, y, z+1
+		gvSamplePos[0] = samplePos[0] * projGridtoGv[0][0];
+		gvSamplePos[1] = samplePos[1] * projGridtoGv[0][1];
+		temp = this.getFloatTexValue(texImage, gvSamplePos, (this._dimx+1), (this._dimy+1), (this._dimz+1));
+		this.vplAddContribution(blocking, temp);
+		
+		// average the value
+		blocking = [blocking[0] / 4, blocking[1] / 4, blocking[2] / 4, blocking[3] / 4];
+		return blocking;
+	},
+	vplAddContribution: function(vpl, contribution) {
+		// add vpl color and light contribution
+		vpl[0] = vpl[0] + contribution[0];
+		vpl[1] = vpl[1] + contribution[1];
+		vpl[2] = vpl[2] + contribution[2];
+		vpl[3] = vpl[3] + contribution[3];
+	},
+	applyBlockingPotential: function(blockingPotential, light, vplR, vplG, vplB) {
+		var blockingMax = 1.83;
+
+		// value depends on direction of light and blocking potential and magnitude of blocking potential
+		var bp = Math.max((blockingPotential[0] * light[0] +
+						   blockingPotential[1] * light[1] + 
+						   blockingPotential[2] * light[2] +
+						   blockingPotential[3] * light[3]), 0.0);		
+		var weight = 1.0 - (bp / blockingMax);
+		for(var i = 0; i <= 3; i++) {
+			vplR[i] = vplR[i] * weight;
+			vplG[i] = vplG[i] * weight;
+			vplB[i] = vplB[i] * weight;
+		}
+	},
+	propagateLight: function(vplRGB, lightIn, shCenteralDir, vpl, solidAngle) {
+		// propagate light from adjacent cell to the five faces of this cell
+		// lightIn is redIn, greenIn, blueIn, which is vpls of neighbour [in source cell]
+		// vplRGB is vpl_r, vpl_g, vpl_b, output vpl [in destination cell]
+
+		// using local variable to do operation, and assign back to lightIn variable after complete the propagate
+		var vplRed = [0.0, 0.0, 0.0, 0.0];
+		var vplGreen = [0.0, 0.0, 0.0, 0.0];
+		var vplBlue = [0.0, 0.0, 0.0, 0.0];
+		
+		var contributionRed = [0.0, 0.0, 0.0, 0.0];
+		var contributionGreen = [0.0, 0.0, 0.0, 0.0];
+		var contributionBlue = [0.0, 0.0, 0.0, 0.0];
+		
+		for(var i =0; i < 5; i++) {
+			// create virtual point light pointing towards face 2
+			this.createVpl(lightIn, shCenteralDir[i], vpl[i], solidAngle[i], 
+						   contributionRed, contributionGreen, contributionBlue);
+			this.vplAddContribution(vplRed, contributionRed);
+			this.vplAddContribution(vplGreen, contributionGreen);
+			this.vplAddContribution(vplBlue, contributionBlue);
+		}
+
+		// assign back to vplRGB
+		vplRGB[0] = vplRed;
+		vplRGB[1] = vplGreen;
+		vplRGB[2] = vplBlue;
+	},
+	createVpl: function(lightIn, shCenteralDir, vpl, solidAngle, contributionRed, contributionGreen, contributionBlue) {
+		// calculate avarage light intensity
+		var intensity = [];
+		intensity[0] = Math.max(0.0, (shCenteralDir[0] * lightIn[0][0] +
+									  shCenteralDir[1] * lightIn[0][1] +
+									  shCenteralDir[2] * lightIn[0][2] +
+									  shCenteralDir[3] * lightIn[0][3]));
+		intensity[1] = Math.max(0.0, (shCenteralDir[0] * lightIn[1][0] +
+									  shCenteralDir[1] * lightIn[1][1] +
+									  shCenteralDir[2] * lightIn[1][2] +
+									  shCenteralDir[3] * lightIn[1][3]));
+		intensity[2] = Math.max(0.0, (shCenteralDir[0] * lightIn[2][0] +
+									  shCenteralDir[1] * lightIn[2][1] +
+									  shCenteralDir[2] * lightIn[2][2] +
+									  shCenteralDir[3] * lightIn[2][3]));
+		
+		// multiply by solid angle to calculate the flux
+		var flux = [intensity[0] * solidAngle, intensity[1] * solidAngle, intensity[2] * solidAngle];
+		// create virtual point light pointing towards the face
+		contributionRed[0] = vpl[0] * flux[0];
+		contributionRed[1] = vpl[1] * flux[0];
+		contributionRed[2] = vpl[2] * flux[0];
+		contributionRed[3] = vpl[3] * flux[0];
+
+		contributionGreen[0] = vpl[0] * flux[1];
+		contributionGreen[1] = vpl[1] * flux[1];
+		contributionGreen[2] = vpl[2] * flux[1];
+		contributionGreen[3] = vpl[3] * flux[1];
+
+		contributionBlue[0] = vpl[0] * flux[2];
+		contributionBlue[1] = vpl[1] * flux[2];
+		contributionBlue[2] = vpl[2] * flux[2];
+		contributionBlue[3] = vpl[3] * flux[2];
+	},
+	vplAddContribution: function(vpl, contribution) {
+		// add vpl color and light contribution
+		vpl[0] = vpl[0] + contribution[0];
+		vpl[1] = vpl[1] + contribution[1];
+		vpl[2] = vpl[2] + contribution[2];
+		vpl[3] = vpl[3] + contribution[3];
+	},
+	getLightFromLeft: function(shCenteralDir, vpl, solidAngle) {
+		// clear source array
+		shCenteralDir.splice(0, shCenteralDir.length);
+		vpl.splice(0, vpl.length);
+		solidAngle.splice(0, solidAngle.length);
+		// 1st set:
+		shCenteralDir.push([0.28209481, 0.0, 0.25687355, -0.41563013]);
+		vpl.push([0.88622689, 0.0, 1.0233266, 0.0]);
+		solidAngle.push(0.42343098);
+
+		// 2nd set:
+		shCenteralDir.push([0.28209481, 0.0, -0.25687355, -0.41563013]);
+		vpl.push([0.88622689, 0.0, -1.0233266, 0.0]);
+		solidAngle.push(0.42343098);
+		
+		// 3rd set:
+		shCenteralDir.push([0.28209481, 0.0, 0.0, -0.48860252]);
+		vpl.push([0.88622689, 0.0, 0.0, -1.0233266]);
+		solidAngle.push(0.40067077);
+		
+		// 4th set:
+		shCenteralDir.push([0.28209481, 0.25687355, 0.0, -0.41563013]);
+		vpl.push([0.88622689, 1.0233266, 0.0, 0.0]);
+		solidAngle.push(0.42343098);
+		
+		// 5th set:
+		shCenteralDir.push([0.28209481, -0.25687355, 0.0, -0.41563013]);
+		vpl.push([0.88622689, -1.0233266, 0.0, 0.0]);
+		solidAngle.push(0.42343098);
+	},
+	getLightFromRight: function(shCenteralDir, vpl, solidAngle) {
+		// clear source array
+		shCenteralDir.splice(0, shCenteralDir.length);
+		vpl.splice(0, vpl.length);
+		solidAngle.splice(0, solidAngle.length);
+
+		// 6th set
+		shCenteralDir.push([0.28209481, 0.0, 0.25687355, 0.41563013]);
+		vpl.push([0.88622689, 0.0, 1.0233266, 0.0]);
+		solidAngle.push(0.42343098);
+		
+		// 7th set
+		shCenteralDir.push([0.28209481, 0.0, -0.25687355, 0.41563013]);
+		vpl.push([0.88622689, 0.0, -1.0233266, 0.0]);
+		solidAngle.push(0.42343098);
+		
+		// 8th set
+		shCenteralDir.push([0.28209481, 0.0, 0.0, 0.48860252]);
+		vpl.push([0.88622689, 0.0, 0.0, 1.0233266]);
+		solidAngle.push(0.40067077);
+		
+		// 9th set
+		shCenteralDir.push([0.28209481, 0.25687355, 0.0, 0.41563013]);
+		vpl.push([0.88622689, 1.0233266, 0.0, 0.0]);
+		solidAngle.push(0.42343098);
+		
+		// 10th set
+		shCenteralDir.push([0.28209481, -0.25687355, 0.0, 0.41563013]);
+		vpl.push([0.88622689, -1.0233266, 0.0, 0.0]);
+		solidAngle.push(0.42343098);
+	},
+	getLightFromAbove: function(shCenteralDir, vpl, solidAngle) {
+		// clear source array
+		shCenteralDir.splice(0, shCenteralDir.length);
+		vpl.splice(0, vpl.length);
+		solidAngle.splice(0, solidAngle.length);
+
+		// 16th set
+		shCenteralDir.push([0.28209481, 0.0, -0.48860252, 0.0]);
+		vpl.push([0.88622689, 0.0, -1.0233266, 0.0]);
+		solidAngle.push(0.40067077);
+
+		// 17th set
+		shCenteralDir.push([0.28209481, 0.0, -0.41563013, -0.25687355]);
+		vpl.push([0.88622689, 0.0, 0.0, -1.0233266]);
+		solidAngle.push(0.42343098);
+
+		// 18th set
+		shCenteralDir.push([0.28209481, 0.0, -0.41563013, 0.25687355]);
+		vpl.push([0.88622689, 0.0, 0.0, 1.0233266]);
+		solidAngle.push(0.42343098);
+
+		// 19th set
+		shCenteralDir.push([0.28209481, 0.25687355, -0.41563013, 0.0]);
+		vpl.push([0.88622689, 1.0233266, 0.0, 0.0]);
+		solidAngle.push(0.42343098);
+
+		// 20th set
+		shCenteralDir.push([0.28209481, -0.25687355, -0.41563013, 0.0]);
+		vpl.push([0.88622689, -1.0233266, 0.0, 0.0]);
+		solidAngle.push(0.42343098);
+	},
+	getLightFromBelow: function(shCenteralDir, vpl, solidAngle) {
+		// clear source array
+		shCenteralDir.splice(0, shCenteralDir.length);
+		vpl.splice(0, vpl.length);
+		solidAngle.splice(0, solidAngle.length);
+
+		// 11th set
+		shCenteralDir.push([0.28209481, 0.0, 0.48860252, 0.0]);
+		vpl.push([0.88622689, 0.0, 1.0233266, 0.0]);
+		solidAngle.push(0.40067077);
+		
+		// 12th set
+		shCenteralDir.push([0.28209481, 0.0, 0.41563013, -0.25687355]);
+		vpl.push([0.88622689, 0.0, 0.0, -1.0233266]);
+		solidAngle.push(0.42343098);
+		
+		// 13th set
+		shCenteralDir.push([0.28209481, 0.0, 0.41563013, 0.25687355]);
+		vpl.push([0.88622689, 0.0, 0.0, 1.0233266]);
+		solidAngle.push(0.42343098);
+
+		// 14th set
+		shCenteralDir.push([0.28209481, 0.25687355, 0.41563013, 0.0]);
+		vpl.push([0.88622689, 1.0233266, 0.0, 0.0]);
+		solidAngle.push(0.42343098);
+
+		// 15th set
+		shCenteralDir.push([0.28209481, -0.25687355, 0.41563013, 0.0]);
+		vpl.push([0.88622689, -1.0233266, 0.0, 0.0]);
+		solidAngle.push(0.42343098);
+	},
+	getLightFromBehind: function(shCenteralDir, vpl, solidAngle) {
+		// clear source array
+		shCenteralDir.splice(0, shCenteralDir.length);
+		vpl.splice(0, vpl.length);
+		solidAngle.splice(0, solidAngle.length);
+
+		// 21st set
+		shCenteralDir.push([0.28209481, 0.48860252, 0.0, 0.0]);
+		vpl.push([0.88622689, 1.0233266, 0.0, 0.0]);
+		solidAngle.push(0.40067077);
+		
+		// 22nd set
+		shCenteralDir.push([0.28209481, 0.41563013, 0.25687355, 0.0]);
+		vpl.push([0.88622689, 0.0, 1.0233266, 0.0]);
+		solidAngle.push(0.42343098);
+
+		// 23rd set
+		shCenteralDir.push([0.28209481, 0.41563013, -0.25687355, 0.0]);
+		vpl.push([0.88622689, 0.0, -1.0233266, 0.0]);
+		solidAngle.push(0.42343098);
+
+		// 24th set
+		shCenteralDir.push([0.28209481, 0.41563013, 0.0, 0.25687355]);
+		vpl.push([0.88622689, 0.0, 0.0, 1.0233266]);
+		solidAngle.push(0.42343098);
+
+		// 25th set
+		shCenteralDir.push([0.28209481, 0.41563013, 0.0, -0.25687355]);
+		vpl.push([0.88622689, 0.0, 0.0, -1.0233266]);
+		solidAngle.push(0.42343098);
+	},
+	getLightFromFront: function(shCenteralDir, vpl, solidAngle) {
+		// clear source array
+		shCenteralDir.splice(0, shCenteralDir.length);
+		vpl.splice(0, vpl.length);
+		solidAngle.splice(0, solidAngle.length);
+
+		// 26th set
+		shCenteralDir.push([0.28209481, -0.48860252, 0.0, 0.0]);
+		vpl.push([0.88622689, -1.0233266, 0.0, 0.0]);
+		solidAngle.push(0.40067077);
+
+		// 27th set
+		shCenteralDir.push([0.28209481, -0.41563013, 0.25687355, 0.0]);
+		vpl.push([0.88622689, 0.0, 1.0233266, 0.0]);
+		solidAngle.push(0.42343098);
+
+		// 28th set
+		shCenteralDir.push([0.28209481, -0.41563013, -0.25687355, 0.0]);
+		vpl.push([0.88622689, 0.0, -1.0233266, 0.0]);
+		solidAngle.push(0.42343098);
+
+		// 29th set
+		shCenteralDir.push([0.28209481, -0.41563013, 0.0, 0.25687355]);
+		vpl.push([0.88622689, 0.0, 0.0, 1.0233266]);
+		solidAngle.push(0.42343098);
+
+		// 30th set
+		shCenteralDir.push([0.28209481, -0.41563013, 0.0, -0.25687355]);
+		vpl.push([0.88622689, 0.0, 0.0, -1.0233266]);
+		solidAngle.push(0.42343098);
 	}
 };
