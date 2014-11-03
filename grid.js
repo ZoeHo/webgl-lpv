@@ -117,8 +117,8 @@ ngrid.prototype = {
 		this._iterations = iterations;
 	},
 	createGridTexture: function() {
-		this._params.internalFormat = gl.LUMINANCE;
-		this._params.sourceFormat = gl.LUMINANCE;
+		this._params.internalFormat = gl.RGBA;
+		this._params.sourceFormat = gl.RGBA;
 
 		this.createSparateChannel("lightIntensityRed", this.lightIntensityRed);
 		this.createSparateChannel("lightIntensityGreen", this.lightIntensityGreen);
@@ -127,7 +127,7 @@ ngrid.prototype = {
 	// one light intensity texture has 4 channel - RGBA,
 	// texture internal format is gl.LUMINANCE
 	createSparateChannel: function(texName, sourceTex) {
-		for(var i = 0; i < 4; i++) {
+		/*for(var i = 0; i < 4; i++) {
 			var name = texName;
 			var channel = i;
 			name = name.concat(channel);
@@ -135,7 +135,9 @@ ngrid.prototype = {
 			var texImage = new Texture(name, this._params, this._dimx * this._dimz, this._dimy);
 			sourceTex.push(texImage);
 		}
-		textureList.push(sourceTex);
+		textureList.push(sourceTex);*/
+		var texImage = new Texture(texName, this._params, this._dimx*this._dimz, this._dimy);
+		textureList.push(texImage);
 	},
 	// create two vertex buffer - slices & vpls
 	createSlices: function() {
@@ -437,13 +439,43 @@ ngrid.prototype = {
 			sourceTex.push(this.intensityTex[i]);
 			destTex.push(this.intensityTex[i+3]);
 		}
+		// test data
+		/*sourceTex[0] = initR;
+		sourceTex[1] = initG;
+		sourceTex[2] = initB;*/
 		
 		// stage 0 propagate: source = intensity 0, destination = intensity 1
 		this.propagate(true, sourceTex, destTex);
-		/*
-		// stage 0 propagate: source = intensity 0, destination = intensity 1
-		propagate_cpuBegin( true, sourceTex, destTex );
-		*/
+		this.swapSourceDest(sourceTex, destTex);
+		// stage 0 accumulate : source = intensity 1, destination = intensity 0 
+		this.accumulate(sourceTex, destTex);
+		
+		var lightVolume = [];
+		lightVolume = destTex.slice();
+		// stage 1 propagate : source = intensity 1, destination = intensity 2
+		for(var i = 0; i < 3; i++) {
+			destTex[i] = this.intensityTex[i+6];
+		}
+		
+		// test data
+		/*sourceTex[0] = propagateR;
+		sourceTex[1] = propagateG;
+		sourceTex[2] = propagateB;*/
+
+		for(var iteration = 1; iteration < this._iterations; iteration++ ) {
+			this.propagate(false, sourceTex, destTex);
+			this.accumulate(destTex, lightVolume);
+			this.swapSourceDest(sourceTex, destTex);
+		}
+
+		this.transIntensityTex(lightVolume);
+	},
+	swapSourceDest: function(sourceTex, destTex) {
+		for( var i = 0; i < 3; i++ ) {
+			var temp = sourceTex[i];
+			sourceTex[i] = destTex[i];
+			destTex[i] = temp;
+		}
 	},
 	propagate: function(firstIteration, sourceTex, destTex) {
 		// first iterations propagation : propagates without checking
@@ -468,34 +500,36 @@ ngrid.prototype = {
 		if(shaderdata.blocking === true) {
 			// use geometry volume which prevents light from being propagated through blocking geometry
 			shaderdata.geometryVolumeTexture = this.geometryTexture;
-			shaderdata.projGridtoGv.push([this._dimx / (this._dimx + 1),
+
+			shaderdata.projGridtoGv[0] = [this._dimx / (this._dimx + 1),
 										  this._dimy / (this._dimy + 1),
-										  this._dimz / (this._dimz + 1)]);
-			shaderdata.projGridtoGv.push([0.5 / (this._dimx + 1), 
+										  this._dimz / (this._dimz + 1)].slice();
+			shaderdata.projGridtoGv[1] = [0.5 / (this._dimx + 1), 
 										  0.5 / (this._dimy + 1), 
-										  0.5 / (this._dimz + 1)]);
+										  0.5 / (this._dimz + 1)].slice();
 		}
 
 		shaderdata.slices = bufferList[1]._data;
 		shaderdata.primcount = this._dimz;
 		
-		this.propagateFS(shaderdata, destTex);
-		/*
 		// propagate shader start
-		propagateFS( shaderdata, destTex );
-		*/
+		this.propagateFS(shaderdata, destTex);
 	},
 	propagateFS: function(shaderdata, destTex) {
 		// propagate shader
 		// after inject vpls, we need to propagate the vpls into grid
-		// use position of element in texture array as glPosition,
+		// use position of element in texture array as glPosition
 		// and let glPosition(x,y,z) divide dim of light grid volume to get texture coordinate.
 
 		// first iteration test data
-		/*shaderdata.coeffsRed = initR;
-		shaderdata.coeffsGreen = initG;
-		shaderdata.coeffsBlue = initB;
-		shaderdata.geometryVolumeTexture = h;*/
+		/*if(shaderdata.blocking === false) {
+			shaderdata.coeffsRed = initR;
+			shaderdata.coeffsGreen = initG;
+			shaderdata.coeffsBlue = initB;
+		} 
+		if(shaderdata.blocking === true) {
+			shaderdata.geometryVolumeTexture = h;
+		}*/
 
 		for(var i = 0; i < this._dimx * this._dimy * this._dimz * 4; i+=4) {
 			// calculate texture coordinate position
@@ -591,7 +625,7 @@ ngrid.prototype = {
 				gridSamplePos[1] -= shaderdata.halfTexelSize;
 				if(gridSamplePos[1] == 1) {
 					gridSamplePos[1] -= shaderdata.halfTexelSize;
-					getVpls(shaderdata, gridSamplePos, lightIn[0], lightIn[1], lightIn[2]);
+					this.getVpls(shaderdata, gridSamplePos, lightIn[0], lightIn[1], lightIn[2]);
 				}
 				blockingPotential = this.sampleBPfromAbove(shaderdata.geometryVolumeTexture,
 														   shaderdata.projGridtoGv,
@@ -763,9 +797,9 @@ ngrid.prototype = {
 	},
 	getFloatTexValue: function(texImage, texCoord, width, height, depth) {
 		var texValue = [0.0, 0.0, 0.0, 0.0];
-		var z = Math.floor(texCoord[2] * depth);
-		var y = Math.floor(texCoord[1] * height);
-		var x = Math.floor(texCoord[0] * width);
+		var z = Math.floor(texCoord[2] * depth + 0.00000000000001);
+		var y = Math.floor(texCoord[1] * height + 0.00000000000001);
+		var x = Math.floor(texCoord[0] * width + 0.00000000000001);
 		
 		z = z * width * height * 4;
 		y = y * width * 4;
@@ -799,7 +833,7 @@ ngrid.prototype = {
 		
 		// step 2	x, y, z+1
 		gvSamplePos[1] = samplePos[1] * projGridtoGv[0][1];
-		gvSamplePos[2] = samplePos[1] * projGridtoGv[0][2] + projGridtoGv[1][2];
+		gvSamplePos[2] = samplePos[2] * projGridtoGv[0][2] + projGridtoGv[1][2];
 		temp = this.getFloatTexValue(texImage, gvSamplePos, (this._dimx+1), (this._dimy+1), (this._dimz+1));
 		this.vplAddContribution(blocking, temp);
 		
@@ -1283,5 +1317,54 @@ ngrid.prototype = {
 		shCenteralDir.push([0.28209481, -0.41563013, 0.0, -0.25687355]);
 		vpl.push([0.88622689, 0.0, 0.0, -1.0233266]);
 		solidAngle.push(0.42343098);
+	},
+	accumulate: function(sourceTex, destTex) {
+		// accumulate source texture (result) to destination texture (final grid)
+		for( var i = 0; i < 3; i++ ) {
+			this.accumulateFS( destTex[i], sourceTex[i] );
+		}
+	},
+	accumulateFS: function(destVolume, sourceVolume) {
+		for( var i = 0; i < this._dimx * this._dimy * this._dimz * 4; i++ ) {
+			destVolume[i] += sourceVolume[i];
+		}
+	},
+	transIntensityTex: function(lightVolume) {
+		// transform indirect light volume sampler texture3D to texuture2D
+		var red = new Float32Array(this._dimx * this._dimy * this._dimz * 4);
+		var green = new Float32Array(this._dimx * this._dimy * this._dimz * 4);
+		var blue = new Float32Array(this._dimx * this._dimy * this._dimz * 4);		
+		
+		textureList[8].data = this.arrangePixels(lightVolume[0]);
+		textureList[9].data = this.arrangePixels(lightVolume[1]);
+		textureList[10].data = this.arrangePixels(lightVolume[2]);
+
+	    this.bindTextureData(8);
+	    this.bindTextureData(9);
+	    this.bindTextureData(10);
+	},
+	arrangePixels: function(texImage) {
+		// arrange square texture pixels to rectangle texture
+		var temp = new Float32Array(this._dimx * this._dimy * this._dimz * 4);
+		for(var i = 0; i < 16; i++) {
+			for(var j = 0; j < 16; j++) {
+				for(var k = 0; k < 16; k++) {
+					// x = x * 4
+					// y = y * 16 * 16 * 4
+					// z = z * 16 * 4
+					temp[ i*16*4 + j*16*16*4 + k*4 +0 ] = texImage[ i*16*16*4 + j*16*4 + k*4 + 0 ];
+					temp[ i*16*4 + j*16*16*4 + k*4 +1 ] = texImage[ i*16*16*4 + j*16*4 + k*4 + 1 ];
+					temp[ i*16*4 + j*16*16*4 + k*4 +2 ] = texImage[ i*16*16*4 + j*16*4 + k*4 + 2 ];
+					temp[ i*16*4 + j*16*16*4 + k*4 +3 ] = texImage[ i*16*16*4 + j*16*4 + k*4 + 3 ];
+				}
+			}
+		}
+		return temp;
+	},
+	bindTextureData: function(textureID) {
+		gl.bindTexture(gl.TEXTURE_2D, textureList[textureID].texture);
+	    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, textureList[textureID].width, 
+	    	textureList[textureID].height, 0, gl.RGBA, gl.FLOAT, textureList[textureID].data );
+	    gl.bindTexture(gl.TEXTURE_2D, null);
 	}
 };
