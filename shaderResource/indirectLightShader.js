@@ -107,7 +107,7 @@ var indirectLightFragmentShader =
     "	return indirect;																\n" +
     " }																					\n" +
     "																					\n" +
-    " vec3 rotate_zh_cone_coeff( in vec3 dir) {											\n" +
+    " vec3 rotate_zh_cone_coeff( in vec3 dir ) {										\n" +
     "   const float zh_second_band = 1.0233266;											\n" +
     "																					\n" +
     "   vec2 theta12_cs = normalize(dir.xz);											\n" +
@@ -137,7 +137,9 @@ var indirectLightFragmentShader =
     "																					\n" +
     "   vec3 indirect = calc_indirect_lighting(grid_coords, transfer_function);			\n" +
     "																					\n" +
-    "	gl_FragColor.rgb = indirect;													\n" +
+    "   //gl_FragColor.rgb = indirect;                                                  \n" +
+    "	vec4 blue = sampleAs3DTexture(incoming_blue, grid_coords);                      \n" +
+    "   gl_FragColor = vec4(indirect, 1.0);												\n" +
     " }																					\n";
 
 var indirectLightVertexShader =

@@ -76,6 +76,11 @@ function display() {
         
         // inject & propagate virtual point light
         grid.injectVpls(rsm, geometryVolume);
+
+        // compute indirect light
+        indirectLightBuffer.begin(viewMat, pMatrix, sunLight, env.lightVolumeTextureDim);
+        grid.bindLightVolumeTexture();
+        indirectLightBuffer.draw();
     }
 }
 

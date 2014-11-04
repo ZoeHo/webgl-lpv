@@ -118,9 +118,11 @@ ndepthNormalBuffer.prototype = {
 
         var shader = this.resampleShader;
         shader.UseProgram();
-        shader.setUniformSampler("texture", textureList[4].texture);
-        shader.activeSampler(textureList[4].texture, 0);
-        
+        /*shader.setUniformSampler("texture", textureList[4].texture);
+        shader.activeSampler(textureList[4].texture, 0);*/
+        shader.setUniformSampler("texture", 4);
+        shader.activeSampler(textureList[4].texture, 4);
+
         var positionBuffer = this.getScreenPositionBuffer();
         shader.setAttributes(positionBuffer, "position", gl.FLOAT);
 

@@ -5,7 +5,7 @@ var bbox;
 var sunLight;
 var rsm;
 var depthNormalBuffer; // depth normal buffer
-var ilBuffer; // indirect light buffer
+var indirectLightBuffer; // indirect light buffer
 var grid;
 var geometryVolume;
 var s = 0;
@@ -59,7 +59,7 @@ function afterModelLoaded() {
     createDNBuffer();
 
     console.log("Indirect light buffer.");
-    createILBuffer();
+    createIndirectLightBuffer();
 
     console.log("Grid.");
     createGrid( gridBbox, lightVolumeDim, rsmWidth, rsmHeight, sunLight );
@@ -152,9 +152,9 @@ function createDNBuffer() {
 }
 
 // create indirect light buffer
-function createILBuffer() {
-    ilBuffer = new IndirectLightBuffer();
-    ilBuffer.create(canvas.width / 2, canvas.height / 2);
+function createIndirectLightBuffer() {
+    indirectLightBuffer = new nIndirectLightBuffer();
+    indirectLightBuffer.create(canvas.width / 2, canvas.height / 2);
 }
 
 function createGrid( grid_bbox, lightVolumeDim, rsmWidth, rsmHeight, sunLight ) {

@@ -35,8 +35,8 @@ Environment.prototype = {
     initIteration: function(value) {
         this.iterations = value;
     },
-    initLightVolumeTextureDim: function(vevtor) {
-        this.lightVolumeTextureDim = vevtor;
+    initLightVolumeTextureDim: function(vector) {
+        this.lightVolumeTextureDim = vector;
     },
     initLightRotation: function(value) {
         this.lightRotation = value;

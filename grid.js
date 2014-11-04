@@ -208,7 +208,6 @@ ngrid.prototype = {
 		// inject vertex shader
 		this.injectVertexShader(injectdata);
 		
-		
 		// propagate & accumulate
 		if( this._iterations > 0 ) {
 			// call propagate & accumulate function
@@ -1366,5 +1365,25 @@ ngrid.prototype = {
 	    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, textureList[textureID].width, 
 	    	textureList[textureID].height, 0, gl.RGBA, gl.FLOAT, textureList[textureID].data );
 	    gl.bindTexture(gl.TEXTURE_2D, null);
+	},
+	bindLightVolumeTexture: function() {
+		this._params.magFilter = gl.LINEAR;
+		this._params.minFilter = gl.LINEAR;
+
+		// create texture and its texture parameter
+		gl.activeTexture(gl.TEXTURE0 + 8);
+    	gl.bindTexture(gl.TEXTURE_2D, textureList[8].texture);
+		gl.texParameteri(this._params.target, gl.TEXTURE_MAG_FILTER, this._params.magFilter);
+        gl.texParameteri(this._params.target, gl.TEXTURE_MIN_FILTER, this._params.minFilter);
+
+		gl.activeTexture(gl.TEXTURE0 + 9);
+    	gl.bindTexture(gl.TEXTURE_2D, textureList[9].texture);
+		gl.texParameteri(this._params.target, gl.TEXTURE_MAG_FILTER, this._params.magFilter);
+        gl.texParameteri(this._params.target, gl.TEXTURE_MIN_FILTER, this._params.minFilter);
+		
+		gl.activeTexture(gl.TEXTURE0 + 10);
+    	gl.bindTexture(gl.TEXTURE_2D, textureList[10].texture);
+		gl.texParameteri(this._params.target, gl.TEXTURE_MAG_FILTER, this._params.magFilter);
+        gl.texParameteri(this._params.target, gl.TEXTURE_MIN_FILTER, this._params.minFilter);
 	}
 };
