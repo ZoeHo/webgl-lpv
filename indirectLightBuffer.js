@@ -122,12 +122,21 @@ nIndirectLightBuffer.prototype = {
         var shader = this.blurShader;
         // active depth normal texture
         shader.activeSampler(textureList[4].texture, 4);
-        // vertical blur pass, active indirect light buffer texture
+        // vertical blur pass, source: active indirect light buffer texture, target = blur texture
         shader.activeSampler(textureList[6].texture, 6);
 
-        var invPorj = depthNormalBuffer.getInvProj();
+        var invProj = depthNormalBuffer.getInvProj();
 
-        this.indirectLightBufferBlur(lightTextureDim, light, [1.0/invPorj[0], 1.0/ invPorj[1]], true);
+        this.indirectLightBufferBlur(lightTextureDim, light, [1.0 / invProj[0], 1.0 / invProj[1]], true);
+        // draw fullscreen quad
+        this.drawBlurPass(7);
+
+        // horizontal blur pass : active blur texture, target texture = indirect light buffer texture
+        shader.setUniformSampler("indirect_light_tex", 7);
+        shader.activeSampler(textureList[7].texture, 7);
+        this.indirectLightBufferBlur(lightTextureDim, light, [1.0 / invProj[0], 1.0 / invProj[1]], false);
+        // draw fullscreen quad
+        this.drawBlurPass(6);
     },
     blurPassBegin: function(depthNormalBuffer) {
         // set blur shader to blur indirect light buffer
@@ -173,16 +182,14 @@ nIndirectLightBuffer.prototype = {
         
         positionBuffer = bufferList[3]._buffer;
         shader.setAttributes(positionBuffer, "position", gl.FLOAT);
-        // draw fullscreen quad
-        this.drawBlurPass();
     },
-    drawBlurPass: function() {
+    drawBlurPass: function(textureID) {
         gl.drawArrays(gl.TRIANGLES, 0, bufferList[3]._buffer.numItems);
 
         gl.bindTexture(gl.TEXTURE_2D, null);
 
-        gl.bindTexture(gl.TEXTURE_2D, textureList[7].texture);
-        gl.copyTexImage2D(gl.TEXTURE_2D, 0, textureList[7].params.internalFormat, 0, 0, this._width, this._height, 0);
+        gl.bindTexture(gl.TEXTURE_2D, textureList[textureID].texture);
+        gl.copyTexImage2D(gl.TEXTURE_2D, 0, textureList[textureID].params.internalFormat, 0, 0, this._width, this._height, 0);
         gl.bindTexture(gl.TEXTURE_2D, null);
     }
 };
