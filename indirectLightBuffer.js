@@ -137,6 +137,7 @@ nIndirectLightBuffer.prototype = {
         this.indirectLightBufferBlur(lightTextureDim, light, [1.0 / invProj[0], 1.0 / invProj[1]], false);
         // draw fullscreen quad
         this.drawBlurPass(6);
+        this.blurPassEnd();
     },
     blurPassBegin: function(depthNormalBuffer) {
         // set blur shader to blur indirect light buffer
@@ -191,5 +192,9 @@ nIndirectLightBuffer.prototype = {
         gl.bindTexture(gl.TEXTURE_2D, textureList[textureID].texture);
         gl.copyTexImage2D(gl.TEXTURE_2D, 0, textureList[textureID].params.internalFormat, 0, 0, this._width, this._height, 0);
         gl.bindTexture(gl.TEXTURE_2D, null);
+    },
+    blurPassEnd: function() {
+        gl.depthMask(true);
+        gl.enable(gl.DEPTH_TEST);
     }
 };
