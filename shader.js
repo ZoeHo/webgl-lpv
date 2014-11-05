@@ -126,6 +126,12 @@ ShaderResource.prototype.setUniform3f = function(uniformName, variable) {
     gl.uniform3f(uniformLocation, variable[0], variable[1], variable[2]);
 };
 
+ShaderResource.prototype.setUniform4f = function(uniformName, variable) {
+    var uniformLocation;
+    uniformLocation = this.GetUniform(uniformName);
+    gl.uniform4f(uniformLocation, variable[0], variable[1], variable[2], variable[3]);
+};
+
 ShaderResource.prototype.setUniformBuffer = function(uniformName, buffer) {
     var uniformLocation;
     uniformLocation = this.GetUniform(uniformName);

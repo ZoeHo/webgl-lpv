@@ -1385,5 +1385,21 @@ ngrid.prototype = {
     	gl.bindTexture(gl.TEXTURE_2D, textureList[10].texture);
 		gl.texParameteri(this._params.target, gl.TEXTURE_MAG_FILTER, this._params.magFilter);
         gl.texParameteri(this._params.target, gl.TEXTURE_MIN_FILTER, this._params.minFilter);
+	},
+	unbindLightVolumeTexture: function() {
+		this._params.magFilter = gl.NEAREST;
+		this._params.minFilter = gl.NEAREST;		
+	
+		gl.bindTexture(gl.TEXTURE_2D, textureList[8].texture);
+		gl.texParameteri(this._params.target, gl.TEXTURE_MAG_FILTER, this._params.magFilter);
+        gl.texParameteri(this._params.target, gl.TEXTURE_MIN_FILTER, this._params.minFilter);
+
+    	gl.bindTexture(gl.TEXTURE_2D, textureList[9].texture);
+		gl.texParameteri(this._params.target, gl.TEXTURE_MAG_FILTER, this._params.magFilter);
+        gl.texParameteri(this._params.target, gl.TEXTURE_MIN_FILTER, this._params.minFilter);
+		
+    	gl.bindTexture(gl.TEXTURE_2D, textureList[10].texture);
+		gl.texParameteri(this._params.target, gl.TEXTURE_MAG_FILTER, this._params.magFilter);
+        gl.texParameteri(this._params.target, gl.TEXTURE_MIN_FILTER, this._params.minFilter);
 	}
 };

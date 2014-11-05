@@ -115,5 +115,74 @@ nIndirectLightBuffer.prototype = {
         gl.bindTexture(gl.TEXTURE_2D, textureList[6].texture);
         gl.copyTexImage2D(gl.TEXTURE_2D, 0, textureList[6].params.internalFormat, 0, 0, this._width, this._height, 0);
         gl.bindTexture(gl.TEXTURE_2D, null);
+    },
+    blur: function(depthNormalBuffer, lightTextureDim, light) {
+        this.blurPassBegin(depthNormalBuffer);
+        
+        var shader = this.blurShader;
+        // active depth normal texture
+        shader.activeSampler(textureList[4].texture, 4);
+        // vertical blur pass, active indirect light buffer texture
+        shader.activeSampler(textureList[6].texture, 6);
+
+        var invPorj = depthNormalBuffer.getInvProj();
+
+        this.indirectLightBufferBlur(lightTextureDim, light, [1.0/invPorj[0], 1.0/ invPorj[1]], true);
+    },
+    blurPassBegin: function(depthNormalBuffer) {
+        // set blur shader to blur indirect light buffer
+        var shader = this.blurShader;
+
+        gl.depthMask(false);
+        gl.disable(gl.DEPTH_TEST);
+        gl.viewport(0, 0, this._width, this._height);
+        gl.clearColor(0.0, 0.0, 0.0, 1.0);
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+        shader.UseProgram();
+        shader.setUniformSampler("indirect_light_tex", 6);
+        shader.setUniformSampler("depth_normal_tex", 4);
+
+        shader.setUniform2f("near_far_plane", depthNormalBuffer.getNearFarPlane());
+        shader.setUniform2f("inv_proj", depthNormalBuffer.getInvProj());
+    },
+    indirectLightBufferBlur: function(lightTextureDim, light, proj, vertical) {
+        // blur indirect light buffer
+        var shader = this.blurShader;
+
+        var bbox = light.getGridbox();
+        // grid size
+        var bboxSize = bbox.calculateDim();
+        
+        var cellSize = bboxSize[0] / lightTextureDim[0];
+        var cellSizeScale = 0.5;
+        var dist = cellSize * cellSizeScale * 0.5;    
+        
+        var distThreashold = cellSize * cellSize * 3.0;
+        shader.setUniform4f("dist_threashold", [distThreashold, distThreashold, distThreashold, distThreashold]);
+        
+        var gridtoTextureScale = [];
+        if(!vertical) {
+            gridtoTextureScale[0] = dist * proj[0] / 2.0;
+            gridtoTextureScale[1] = 0.0;
+        } else {
+            gridtoTextureScale[0] = 0.0;
+            gridtoTextureScale[1] = dist * proj[1] / 2.0;
+        }
+        shader.setUniform2f("grid_to_texture_scale", gridtoTextureScale);
+        
+        positionBuffer = bufferList[3]._buffer;
+        shader.setAttributes(positionBuffer, "position", gl.FLOAT);
+        // draw fullscreen quad
+        this.drawBlurPass();
+    },
+    drawBlurPass: function() {
+        gl.drawArrays(gl.TRIANGLES, 0, bufferList[3]._buffer.numItems);
+
+        gl.bindTexture(gl.TEXTURE_2D, null);
+
+        gl.bindTexture(gl.TEXTURE_2D, textureList[7].texture);
+        gl.copyTexImage2D(gl.TEXTURE_2D, 0, textureList[7].params.internalFormat, 0, 0, this._width, this._height, 0);
+        gl.bindTexture(gl.TEXTURE_2D, null);
     }
 };
