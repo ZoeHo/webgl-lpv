@@ -27,7 +27,7 @@ var rsmVertexShader =
 	" attribute vec3 normal;																	\n" +
 	" attribute vec2 texcoord;																	\n" +
 	" attribute vec4 color;																		\n" +
-	" varying vec4 materialColor;																\n"+
+	" varying vec4 materialColor;																\n" +
 	" 																							\n" +
 	" varying vec2 grid_space_normal;															\n" +
 	" varying vec2 tc;																			\n" +
@@ -136,7 +136,7 @@ var rsmNormalYFragmentShader =
 var rsmDiffuseFragmentShader =
 	" precision mediump float;																	\n" +
 	" varying vec2 tc;																			\n" +
-	" varying vec4 materialColor;																\n"+
+	" varying vec4 materialColor;																\n" +
 	" 																							\n" +
 	" uniform sampler2D diffuse_tex;															\n" +
 	" /*uniform vec4 material_color;*/															\n" +

@@ -8,7 +8,6 @@ var depthNormalBuffer; // depth normal buffer
 var indirectLightBuffer; // indirect light buffer
 var grid;
 var geometryVolume;
-var s = 0;
 
 function cleanup() {
     // correspond lpv/test_model::cleanup();
@@ -110,7 +109,7 @@ function createRSMshader() {
 
 function createFinalShader() {
     var finalILShader = new ShaderResource();
-    finalILShader.initShaders("finalILShader", finalVertexShader, finalFragmentShader);
+    finalILShader.initShaders("finalIndirectLightShader", finalVertexShader, finalFragmentShader);
     shaderList.push(finalILShader);
 
     var finalNILShader = new ShaderResource();
@@ -118,7 +117,7 @@ function createFinalShader() {
     finalNILVertexShader = finalNILVertexShader.concat(finalVertexShader);
     var finalNILFragmentShader = "#define NO_INDIRECT_LIGHT\n";
     finalNILFragmentShader = finalNILFragmentShader.concat(finalFragmentShader);
-    finalNILShader.initShaders("finalNILShader", finalNILVertexShader, finalNILFragmentShader);
+    finalNILShader.initShaders("finalNoIndirectLightShader", finalNILVertexShader, finalNILFragmentShader);
     shaderList.push(finalNILShader);
 }
 
@@ -244,14 +243,14 @@ function drawTextureElement(textureID) {
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, vertexIndexBuffer);
     gl.drawElements(gl.TRIANGLES, vertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
     //gl.drawArrays(gl.TRIANGLES, 0, 234);
-
+    
+    gl.copyTexImage2D(gl.TEXTURE_2D, 0, textureList[textureID].params.internalFormat, 0, 0, textureList[textureID].width, textureList[textureID].height, 0);
     if(textureList[textureID].params.type === gl.FLOAT) {
         Texture.getFloatTexImage(textureID);
     } else if(textureList[textureID].params.type === gl.UNSIGNED_BYTE) {
         Texture.getUnsignedTexImage(textureID);
     }
 
-    gl.copyTexImage2D(gl.TEXTURE_2D, 0, textureList[textureID].params.internalFormat, 0, 0, textureList[textureID].width, textureList[textureID].height, 0);
     gl.bindTexture(gl.TEXTURE_2D, null);
     //gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 }
@@ -266,7 +265,7 @@ function drawtoRsm(light, rsm) {
     // drawtoRsmDepth
     renderRsmTex(light, rsm, 4, 3);
 
-    //drawTexture(rsm.getWidth(), rsm.getHeight(), 2);
+    //drawTexture(rsm.getWidth(), rsm.getHeight(), 3);
 }
 
 function drawTexture(width, height, textureID) {
@@ -293,16 +292,49 @@ function drawTexture(width, height, textureID) {
     var resolutionLocation = gl.getUniformLocation(texShader.shaderProgram, "u_resolution");
     gl.uniform2f(resolutionLocation, width, height);
     
-    /*var pixels = new Float32Array(rsm.getWidth() * rsm.getHeight());
-    for (var y = 0; y < rsm.getHeight(); ++y) {
-        for (var x = 0; x < rsm.getWidth(); ++x) {
-            var offset = y * rsm.getWidth() + x;
-            pixels[offset] = (x / rsm.getWidth() + y / rsm.getHeight()) * 0.5;
-        }
-    }*/
-
     gl.bindTexture(gl.TEXTURE_2D, textureList[textureID].texture);
     //gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE, 512, 512, 0, gl.LUMINANCE, gl.FLOAT, pixels );
     gl.drawArrays(gl.TRIANGLES, 0, 6);
+    gl.bindTexture(gl.TEXTURE_2D, null);
+}
+
+function drawModel(viewMatrix, projMatrix, indirectLightBuffer, light, rsm, indirectLight) {
+    // draw the scene with direct/indirect light and shadows
+    // choose with/without indirect light shader
+    var shader;
+    indirectLight ? shader = shaderList[5] : shader = shaderList[6];
+
+    shader.UseProgram();
+    shader.setMatrixUniforms("projection_matrix", projMatrix);
+    shader.setMatrixUniforms("view_matrix",viewMatrix);
+
+    var gridSpaceRotation = light.getGridSpaceRotation();
+    
+    // grid space - use RSM texture as shadow map
+    shader.setMatrixUniforms("light_space_matrix", gridSpaceRotation);
+
+    if(indirectLight) {
+        // active : indirect light buffer texture
+        shader.setUniformSampler("indirect_light", 6);
+        shader.activeSampler(textureList[6].texture, 6);
+    }
+    shader.setUniform("grid_origin_z", light.getGridbox().getMin()[2]);
+    
+    // RSM : data required for the shadow
+    var projection = light.getGridSpaceProjection();
+    var rsmMatrix = mat4.create();
+    mat4.multiply(projection, gridSpaceRotation, rsmMatrix);
+    shader.setMatrixUniforms("rsm_matrix", rsmMatrix);
+
+    shader.setUniformSampler("rsm_depth", 3);
+    shader.activeSampler(textureList[3].texture, 3);
+
+    var positionBuffer = bufferList[0]._buffer;
+    shader.setAttributes(positionBuffer, "position", gl.FLOAT);
+    shader.setAttributes(vertexNormalBuffer, "normal", gl.FLOAT);
+    shader.setAttributes(vertexTextureCoordBuffer, "texcoord", gl.FLOAT);
+    shader.setAttributes(vertexColorBuffer, "mcolor", gl.FLOAT);
+
+    gl.drawArrays(gl.TRIANGLES, 0, positionBuffer.numItems);
     gl.bindTexture(gl.TEXTURE_2D, null);
 }

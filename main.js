@@ -86,6 +86,16 @@ function display() {
         // blur indirect light buffer
         indirectLightBuffer.blur(depthNormalBuffer, env.lightVolumeTextureDim, sunLight);
     }
+    /*var skyColor = (-1.0) * sunLight.getLightDirinWorldSpace()[1];
+    skyColor = Math.max(0.0, skyColor);
+    skyColor = Math.min(1.0, skyColor);
+    gl.clearColor(0.0, 0.0, skyColor, 1.0);*/
+    gl.clearColor(0.0, 0.0, 0.0, 1.0);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    gl.viewport(0, 0, canvas.width, canvas.height);
+
+    // render the scene, add direct/indirect light & shadow
+    drawModel(viewMat, pMatrix, indirectLightBuffer, sunLight, rsm, env.indirectLightOn);
 }
 
 function drawScene() {
@@ -113,47 +123,6 @@ function drawScene() {
     //mat4.rotate(mvMatrix, degtoRad(xRot), [1, 0, 0]);
     //mat4.rotate(mvMatrix, degtoRad(yRot), [0, 1, 0]);
     //mat4.rotate(mvMatrix, degtoRad(zRot), [0, 0, 1]);
-
-    // position buffer
-    /*gl.bindBuffer(gl.ARRAY_BUFFER, vertexPositionBuffer);
-    gl.vertexAttribPointer(baseShader.shaderProgram.vertexPositionAttribute, 
-                           vertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
-
-    // texture
-    gl.bindBuffer(gl.ARRAY_BUFFER, vertexTextureCoordBuffer);
-    gl.vertexAttribPointer(baseShader.shaderProgram.textureCoordAttribute, vertexTextureCoordBuffer.itemSize, gl.FLOAT, false, 0, 0);
-    gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, textureList[0].texture);
-    gl.uniform1i(baseShader.shaderProgram.samplerUniform, 0);
-
-    // color
-    gl.bindBuffer(gl.ARRAY_BUFFER, vertexColorBuffer);
-    gl.vertexAttribPointer(baseShader.shaderProgram.vertexColorAttribute, 
-                           vertexColorBuffer.itemSize, gl.FLOAT, false, 0, 0);
-
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, vertexIndexBuffer);
-    //baseShader.setMatrixUniforms(baseShader.shaderProgram);
-    gl.drawElements(gl.TRIANGLES, vertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);*/
-    //
-
-    // buffer
-    /*gl.bindBuffer(gl.ARRAY_BUFFER, vertexPositionBuffer);
-    gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute, vertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
-
-    //gl.bindBuffer(gl.ARRAY_BUFFER, vertexTextureCoordBuffer);
-    //gl.vertexAttribPointer(shaderProgram.textureCoordAttribute, vertexTextureCoordBuffer.itemSize, gl.FLOAT, false, 0, 0);
-
-    // color
-    gl.bindBuffer(gl.ARRAY_BUFFER, vertexColorBuffer);
-    gl.vertexAttribPointer(shaderProgram.vertexColorAttribute, vertexColorBuffer.itemSize, gl.FLOAT, false, 0, 0);
-
-    /*gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, cubeTexture);
-    gl.uniform1i(shaderProgram.samplerUniform, 0);*/
-
-    /*gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, vertexIndexBuffer);
-    //setMatrixUniforms();
-    gl.drawElements(gl.TRIANGLES, vertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);*/
 }
 
 
@@ -200,7 +169,7 @@ function idleFunction() {
             axis[2] *= (-1.0);
             mat4.vecTransform(rot, lightDir, axis);
         }
-        env.lightRotation += Math.PI * env.rotateDir * 60 /( 1000.0 * 60.0 );
+        env.lightRotation += Math.PI * env.rotateDir * 60 /( 100.0 * 60.0 );
         sunLight.setDir(lightDir);
         sunLight.update();
     }

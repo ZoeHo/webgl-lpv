@@ -1,148 +1,10 @@
-/*// final shader - indirect light shader
-// not define NO_INDIRECT_LIGHT	
-var finalILFragmentShader = '\
-	precision mediump float;\
-	uniform sampler2D diffuse_tex;\
-	uniform sampler2D indirect_light;\
-	\
-	uniform sampler2D rsm_depth;\
-	uniform vec4 material_color;\
-	\
-	varying vec2 tc;\
-	varying float direct;\
-	varying vec3 indirect_light_tc;\
-	varying vec3 rsm_pos;\
-	\
-	void main() {\
-		float depth = texture2D(rsm_depth, rsm_pos.xy).r;\
-		\
-		float shadow = step(depth, rsm_pos.z + 0.5);\
-		\
-		const float ambient = 0.05;\
-		const float one_minus_ambient = 1.0 - ambient;\
-		\
-		vec3 light = vec3(direct) * shadow + vec3(ambient);\
-		vec3 indirect = texture2DProj(indirect_light, indirect_light_tc.xyzz).rgb;\
-		light += indirect * one_minus_ambient;\
-		\
-		vec3 color = texture2D(diffuse_tex, tc).rgb * material_color.a + material_color.rgb;\
-		\
-		vec3 c = color * light;\
-		\
-		gl_FragColor.rgb = c;\
-	}';
-
-var finalILVertexShader = '\
-	attribute vec4 position;\
-	attribute vec3 normal;\
-	attribute vec2 texcoord;\
-	\
-	uniform mat4 projection_matrix;\
-	uniform mat4 view_matrix;\
-	uniform mat4 light_space_matrix;\
-	uniform mat4 rsm_matrix;\
-	uniform float grid_origin_z;\
-	\
-	varying vec2 tc;\
-	varying float direct;\
-	varying vec3 indirect_light_tc;\
-	varying vec3 rsm_pos;\
-	\
-	void main() {\
-		mat4 mvp_matrix = projection_matrix * view_matrix;\
-		vec4 clip_pos = mvp_matrix * position;\
-		gl_Position = clip_pos;\
-		\
-		indirect_light_tc.xy = 0.5 * (clip_pos.xy + clip_pos.ww);\
-		indirect_light_tc.z = clip_pos.w;\
-		\
-		mat3 grid_space = mat3(light_space_matrix);\
-		vec3 light_space_normal = grid_space * normal;\
-		\
-		direct = clamp(light_space_normal.z * 0.5, 0.0, 1.0);\
-		tc = texcoord;\
-		\
-		rsm_pos.xy - (rsm_matrix * position).xy;\
-		rsm_pos.xy = 0.5 * rsm_pos.xy + 0.5;\
-		\
-		float z = (grid_space * vec3(position)).z;\
-		z = z - grid_origin_z;\
-		\
-		rsm_pos.z = z;\
-	}';
-
-
-var finalNILFragmentShader = '\
-	precision mediump float;\
-	uniform sampler2D diffuse_tex;\
-	uniform sampler2D rsm_depth;\
-	\
-	uniform vec4 material_color;\
-	\
-	varying vec2 tc;\
-	varying float direct;\
-	varying vec3 rsm_pos;\
-	\
-	void main()\
-	{\
-		float depth = texture2D(rsm_depth, rsm_pos.xy).r;\
-		\
-		float shadow = step(depth, rsm_pos.z + 0.5);\
-		\
-		const float ambient = 0.05;\
-		const float one_minus_ambient = 1.0 - ambient;\
-		\
-		vec3 light = vec3(direct) * shadow + vec3(ambient);\
-		\
-		vec3 color = texture2D(diffuse_tex, tc).rgb * material_color.a + material_color.rgb;\
-		\
-		vec3 c = color * light;\
-		\
-		gl_FragColor.rgb = c;\
-	}';
-
-var finalNILVertexShader = '\
-	attribute vec4 position;\
-	attribute vec3 normal;\
-	attribute vec2 texcoord;\
-	\
-	uniform mat4 projection_matrix;\
-	uniform mat4 view_matrix;\
-	uniform mat4 light_space_matrix;\
-	uniform mat4 rsm_matrix;\
-	uniform float grid_origin_z;\
-	\
-	varying vec2 tc;\
-	varying float direct;\
-	varying vec3 rsm_pos;\
-	\
-	void main()\
-	{\
-	    mat4 mvp_matrix = projection_matrix * view_matrix;\
-		\
-		vec4 clip_pos = mvp_matrix * position;\
-		\
-	 	gl_Position = clip_pos;\
-	 	\
-		mat3 grid_space = mat3(light_space_matrix);\
-	 	vec3 light_space_normal = grid_space * normal;\
-		direct = clamp(light_space_normal.z * 0.5, 0.0, 1.0);\
-	 	tc = texcoord;\
-		\
-		rsm_pos.xy = (rsm_matrix * position).xy;\
-		rsm_pos.xy = 0.5 * rsm_pos.xy + 0.5;\
-		\
-		float z = (grid_space * vec3(position) ).z;\
-		z = z - grid_origin_z;\
-		\
-		rsm_pos.z = z;\
-	}';
-*/
 var finalVertexShader =
     " precision mediump float;										\n" +
     " attribute vec4 position;										\n" +
     " attribute vec3 normal;										\n" +
     " attribute vec2 texcoord;										\n" +
+    " attribute vec4 mcolor;										\n" +
+	" varying vec4 materialColor;									\n" +
     " 																\n" +
     " uniform mat4 projection_matrix;								\n" +
     " uniform mat4 view_matrix;										\n" +
@@ -183,6 +45,7 @@ var finalVertexShader =
     " 	z = z - grid_origin_z;										\n" +
     " 																\n" +
     " 	rsm_pos.z = z;												\n" +
+    "	materialColor = mcolor;										\n" +
     " } 															\n";
 
 var finalFragmentShader =
@@ -194,7 +57,8 @@ var finalFragmentShader =
     " 																						\n" +
     " uniform sampler2D rsm_depth;															\n" +
     " 																						\n" +
-    " uniform vec4 material_color;															\n" +
+    " varying vec4 materialColor;															\n" +
+    " /*uniform vec4 material_color;*/														\n" +
     " 																						\n" +
     " varying vec2 tc;																		\n" +
     " varying float direct;																	\n" +
@@ -204,7 +68,7 @@ var finalFragmentShader =
     " varying vec3 rsm_pos;																	\n" +
     " 																						\n" +
     " void main() {																			\n" +
-    " 	float depth = texture2D(rsm_depth, rsm_pos.xy).r;									\n" +
+    " 	float depth = texture2D(rsm_depth, rsm_pos.xy - (1.0 / 512.0 * 0.5) ).r;									\n" +
     " 																						\n" +
     " 	float shadow = step(depth, rsm_pos.z + 0.5);										\n" +
     " 																						\n" +
@@ -217,9 +81,11 @@ var finalFragmentShader =
     " 	light += indirect * one_minus_ambient;												\n" +
     " 	# endif																				\n" +
     " 																						\n" +
-    " 	vec3 color = texture2D(diffuse_tex, tc).rgb * material_color.a + material_color.rgb;\n" +
+    " 	//vec3 color = texture2D(diffuse_tex, tc).rgb * material_color.a + material_color.rgb;\n" +
+    " 	vec3 color = texture2D(diffuse_tex, tc).rgb * materialColor.a + materialColor.rgb;	\n" +
     " 																						\n" +
     " 	vec3 c = color * light;																\n" +
     " 																						\n" +
-    " 	gl_FragColor.rgb = c;																\n" +
+    " 	//gl_FragColor.rgb = c;																\n" +
+    " 	gl_FragColor = vec4(c, 1.0);														\n" +
     " }																						\n";

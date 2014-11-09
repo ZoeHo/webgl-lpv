@@ -83,6 +83,8 @@ Texture.getFloatTexImage = function(textureID) {
     // Read the contents of the framebuffer (data stores the pixel data)
     var width = textureList[textureID].width;
     var height = textureList[textureID].height;
+    var format = textureList[textureID].params.sourceFormat;
+    var sourceType = textureList[textureID].params.type;
     if( textureList[textureID].data ){
         textureList[textureID].data = [];
     }
@@ -91,6 +93,9 @@ Texture.getFloatTexImage = function(textureID) {
     }
     gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, textureList[textureID].pixels);
     textureList[textureID].data = new Float32Array(textureList[textureID].pixels.buffer);
+
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE, 512, 512, 0, gl.LUMINANCE, gl.FLOAT, textureList[textureID].data );
+    //gl.texImage2D(gl.TEXTURE_2D, 0, format, width, height, 0, format, sourceType, textureList[textureID].data );
 }
 
 function TextureParams() {

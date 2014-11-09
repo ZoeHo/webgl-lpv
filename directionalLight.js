@@ -41,5 +41,8 @@ Light.prototype = {
     },
     getLightDirinGridSpace: function() {
         return this.grid_space.getLightDir();
+    },
+    getLightDirinWorldSpace: function() {
+        return this.dir;
     }
 };
