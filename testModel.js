@@ -8,6 +8,7 @@ var depthNormalBuffer; // depth normal buffer
 var indirectLightBuffer; // indirect light buffer
 var grid;
 var geometryVolume;
+var cam;
 
 function cleanup() {
     // correspond lpv/test_model::cleanup();

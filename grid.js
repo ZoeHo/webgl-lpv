@@ -34,6 +34,7 @@ function propagateData() {
 
 function ngrid() {
 	this._iterations = 0;
+	this._useGeomVolume = true;
 
 	this._params = new TextureParams();
 	this._params.magFilter = gl.NEAREST;
@@ -115,6 +116,9 @@ ngrid.prototype = {
 	// propagate iterations
 	setIterations: function(iterations) {
 		this._iterations = iterations;
+	},
+	setUseGeometryVolume: function(useGeomVolume) {
+		this._useGeomVolume = useGeomVolume;
 	},
 	createGridTexture: function() {
 		this._params.internalFormat = gl.RGBA;
@@ -482,7 +486,7 @@ ngrid.prototype = {
 		// blocking potentials to avoid self shadowing
 		var shaderdata = new propagateData();
 
-		if(firstIteration === true) {
+		if( this._useGeomVolume === false || firstIteration === true) {
 			shaderdata.blocking = false; 	// propagation no blocking
 		} else {
 			shaderdata.blocking = true; 	// propagation

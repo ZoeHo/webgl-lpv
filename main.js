@@ -106,9 +106,14 @@ function drawScene() {
         return;
     }*/
 
-    mat4.perspective(60.0, canvas.width / canvas.height, 1.0, 200.0, pMatrix);
+    /*mat4.perspective(60.0, canvas.width / canvas.height, 1.0, 200.0, pMatrix);
     mat4.identity(mvMatrix);
-    mat4.translate(mvMatrix, [0.0, 0.0, -27.5]);
+    mat4.translate(mvMatrix, [0.0, 0.0, -27.5]);*/
+    mat4.perspective(60.0, canvas.width / canvas.height, env.znear, env.zfar, pMatrix);
+    mat4.identity(mvMatrix);
+    mat4.translate(mvMatrix, cam.pos);
+    mat4.rotate(mvMatrix, degtoRad(cam.rot[0]), [1.0, 0.0, 0.0]);
+    mat4.rotate(mvMatrix, degtoRad(cam.rot[1]), [0.0, 1.0, 0.0]);
 
     display();
     
@@ -148,8 +153,8 @@ function idleFunction() {
             env.rotateDir *= -1.0;
             env.lightRotation = Math.PI;
         } else if(env.lightRotation < 0.0) {
-                env.rotateDir *= -1.0;
-                env.lightRotation = 0.0;
+            env.rotateDir *= -1.0;
+            env.lightRotation = 0.0;
         }
 
         var lightDir = [0.0, 0.0, 0.0];
@@ -159,7 +164,6 @@ function idleFunction() {
             // to do - build rotate matrix
             mat4.identity(rot);
             mat4.rotate(rot, (-1.0)*env.lightRotation, [1.0, 0.0, 0.0] );
-
             mat4.vecTransform(rot, lightDir, [0.0, 0.0, -1.0]);
         } else {
             var axis = [0.0, 0.0, 0.0];
@@ -169,6 +173,7 @@ function idleFunction() {
             axis[2] *= (-1.0);
             mat4.vecTransform(rot, lightDir, axis);
         }
+
         env.lightRotation += Math.PI * env.rotateDir * 60 /( 100.0 * 60.0 );
         sunLight.setDir(lightDir);
         sunLight.update();
@@ -221,16 +226,69 @@ function start() {
     initList();
 
     modelCreate();
-    //initShaders();
-    //initTexture();
-    //loadCornellbox();
 
     gl.clearColor(0.0, 0.0, 0.0, 1.0);
     gl.clearDepth(1.0);
     gl.enable(gl.DEPTH_TEST);
     gl.enable(gl.CULL_FACE);
+}
 
-    //tick();
+function keyboardFunc(event) {
+    //alert( "keyCode for the key pressed: " + event.keyCode + "\n" );
+    if(event.keyCode == 113) { // key F2 - indirect light on/off
+        if(env.indirectLightOn == false) {env.indirectLightOn = true;}
+        else if(env.indirectLightOn == true) {env.indirectLightOn = false;}
+    } 
+    else if(event.keyCode == 118) { // key F7 - light rotate
+        if(env.rotateLight == false) {env.rotateLight = true;}
+        else if(env.rotateLight == true) {env.rotateLight = false;}
+    } 
+    else if(event.keyCode == 119) { // key F8 - blocking potential on/off
+        if(env.useGeomVolume == false) {env.useGeomVolume = true}
+        else if(env.useGeomVolume == true) {env.useGeomVolume = false;}
+        grid.setUseGeometryVolume(env.useGeomVolume);
+    } 
+    else if(event.keyCode == 120) { // key F9 - dampen on/off
+        if(env.dampen == false) {env.dampen = true;}
+        else if(env.dampen == true) {env.dampen = false;}
+        indirectLightBuffer.setDampen(env.dampen);
+    } 
+    else if(event.which == 'Z'.charCodeAt(0)) { // key Z - light rotation direction set
+        env.lightRotateAxis = true;
+        env.lightRotation = Math.PI / 2.0;
+        env.rotateDir = 1.0;
+    } 
+    else if(event.which == 'X'.charCodeAt(0)) { // key X - light rotation direction set
+        env.lightRotateAxis = false;
+        env.lightRotation = 2.7;
+        env.rotateDir = -1.0;
+    }
+    // rotate scene
+    else if(event.keyCode == 37) { // key left
+        cam.rotateLeft();
+    }
+    else if(event.keyCode == 38) { // key up
+        cam.rotateUp();
+    }
+    else if(event.keyCode == 39) { // key right
+        cam.rotateRight();
+    }
+    else if(event.keyCode == 40) { // key down
+        cam.rotateDown();
+    }
+    // move camera position
+    else if(event.which == 'A'.charCodeAt(0)) { // key A - translate left
+        cam.moveLeft();
+    }
+    else if(event.which == 'W'.charCodeAt(0)) { // key W - translate up
+        cam.moveForward();
+    }
+    else if(event.which == 'D'.charCodeAt(0)) { // key W - translate right
+        cam.moveRight();
+    }
+    else if(event.which == 'S'.charCodeAt(0)) { // key W - translate backward
+        cam.moveBackward();
+    }
 }
 
 window.onload = function() {

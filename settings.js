@@ -25,6 +25,7 @@ Environment.prototype = {
     },
     initCam: function(position, rotate) {
         // need to do.
+        cam = new camera(position, rotate);
     },
     initZnear: function(value) {
         this.znear = value;
@@ -63,10 +64,6 @@ Environment.prototype = {
         this.lightRotateAxis = option;
     }
 };
-
-function camera() {
-
-}
 
 // glutapp
 // test_model

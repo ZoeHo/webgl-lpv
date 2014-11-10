@@ -18,6 +18,7 @@
     <script src="shaderResource/indirectLightShader.js"></script>
     <script src="shaderResource/blurShader.js"></script>
 
+    <script src="camera.js"></script>
     <script src="boundingbox.js"></script>
     <script src="gridSpace.js"></script>
     <script src="directionalLight.js"></script>
@@ -37,7 +38,7 @@
 
     </head>
 
-    <body>
+    <body onkeydown = "keyboardFunc(event);">
         <!--<canvas id="glcanvas" width="640" height="640"></canvas>-->
         <canvas id="glcanvas" width="1280" height="720"></canvas>
     </body>
