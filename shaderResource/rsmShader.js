@@ -185,5 +185,5 @@ var rsmDepthFragmentShader =
 	" }																							\n" +
 	"																							\n" +
 	" void main() {																				\n" +
-	" 	gl_FragData[0] = encode_float(depth);//vec4(depth, 1.0, 1.0, 1.0);											\n" +
+	" 	gl_FragData[0] = encode_float(depth);//vec4(depth, 1.0, 1.0, 1.0);						\n" +
 	" }																							\n";	

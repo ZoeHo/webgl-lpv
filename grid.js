@@ -124,13 +124,13 @@ ngrid.prototype = {
 		this._params.internalFormat = gl.RGBA;
 		this._params.sourceFormat = gl.RGBA;
 
-		this.createSparateChannel("lightIntensityRed", this.lightIntensityRed);
-		this.createSparateChannel("lightIntensityGreen", this.lightIntensityGreen);
-		this.createSparateChannel("lightIntensityBlue", this.lightIntensityBlue);
+		this.createIntensityTex("lightIntensityRed", this.lightIntensityRed);
+		this.createIntensityTex("lightIntensityGreen", this.lightIntensityGreen);
+		this.createIntensityTex("lightIntensityBlue", this.lightIntensityBlue);
 	},
 	// one light intensity texture has 4 channel - RGBA,
 	// texture internal format is gl.LUMINANCE
-	createSparateChannel: function(texName, sourceTex) {
+	createIntensityTex: function(texName, sourceTex) {
 		/*for(var i = 0; i < 4; i++) {
 			var name = texName;
 			var channel = i;

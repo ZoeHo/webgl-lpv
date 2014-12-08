@@ -104,7 +104,7 @@ nIndirectLightBuffer.prototype = {
     },
     draw: function() {
         var shader = this.selectShader();
-        positionBuffer = bufferList[0]._buffer;
+        var positionBuffer = bufferList[0]._buffer;
         shader.setAttributes(positionBuffer, "position", gl.FLOAT);
         shader.setAttributes(vertexNormalBuffer, "normal", gl.FLOAT);
 

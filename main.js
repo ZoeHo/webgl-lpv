@@ -66,9 +66,14 @@ function display() {
         depthNormalBuffer.begin(viewMat, pMatrix, sunLight);
         depthNormalBuffer.draw();
         depthNormalBuffer.resample();
-
+        
+        // gpu
         // inject blocking potentials into geometry volume
         grid.inject(geometryVolume, depthNormalBuffer);
+        
+        // cpu
+        // inject blocking potentials into geometry volume
+        /*grid.inject(geometryVolume, depthNormalBuffer);
         // inject blocking potentials from RSM
         grid.inject2(geometryVolume, rsm);
         //  select blocking potentials from geometry volume 0 & 1 (based on magnitude)
@@ -84,18 +89,18 @@ function display() {
         grid.unbindLightVolumeTexture();
 
         // blur indirect light buffer
-        indirectLightBuffer.blur(depthNormalBuffer, env.lightVolumeTextureDim, sunLight);
+        indirectLightBuffer.blur(depthNormalBuffer, env.lightVolumeTextureDim, sunLight);*/
     }
     /*var skyColor = (-1.0) * sunLight.getLightDirinWorldSpace()[1];
     skyColor = Math.max(0.0, skyColor);
     skyColor = Math.min(1.0, skyColor);
     gl.clearColor(0.0, 0.0, skyColor, 1.0);*/
-    gl.clearColor(0.0, 0.0, 0.0, 1.0);
+    /*gl.clearColor(0.0, 0.0, 0.0, 1.0);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     gl.viewport(0, 0, canvas.width, canvas.height);
 
     // render the scene, add direct/indirect light & shadow
-    drawModel(viewMat, pMatrix, indirectLightBuffer, sunLight, rsm, env.indirectLightOn);
+    drawModel(viewMat, pMatrix, indirectLightBuffer, sunLight, rsm, env.indirectLightOn);*/
 }
 
 function drawScene() {
@@ -236,21 +241,17 @@ function start() {
 function keyboardFunc(event) {
     //alert( "keyCode for the key pressed: " + event.keyCode + "\n" );
     if(event.keyCode == 113) { // key F2 - indirect light on/off
-        if(env.indirectLightOn == false) {env.indirectLightOn = true;}
-        else if(env.indirectLightOn == true) {env.indirectLightOn = false;}
+        env.indirectLightOn = !env.indirectLightOn;
     } 
     else if(event.keyCode == 118) { // key F7 - light rotate
-        if(env.rotateLight == false) {env.rotateLight = true;}
-        else if(env.rotateLight == true) {env.rotateLight = false;}
+        env.rotateLight = !env.rotateLight;
     } 
     else if(event.keyCode == 119) { // key F8 - blocking potential on/off
-        if(env.useGeomVolume == false) {env.useGeomVolume = true}
-        else if(env.useGeomVolume == true) {env.useGeomVolume = false;}
+        env.useGeomVolume = !env.useGeomVolume;
         grid.setUseGeometryVolume(env.useGeomVolume);
     } 
     else if(event.keyCode == 120) { // key F9 - dampen on/off
-        if(env.dampen == false) {env.dampen = true;}
-        else if(env.dampen == true) {env.dampen = false;}
+        env.dampen = !env.dampen;
         indirectLightBuffer.setDampen(env.dampen);
     } 
     else if(event.which == 'Z'.charCodeAt(0)) { // key Z - light rotation direction set

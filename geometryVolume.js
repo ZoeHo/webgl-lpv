@@ -48,14 +48,17 @@ function ngeometryVolume() {
 	this._cellSize = [];
 	this._bbox = new Boundingbox();
 
-	/*this.injectBlockerShader;
+	this.injectBlockerShader;
 	this.injectBlocker2Shader;
-	this.selectGvShader;*/
+	this.selectGvShader;
 
 	this.gvTexture0 = [];
 	this.gvTexture1 = [];
 	this.gvTexture2 = [];
 	this._params = new TextureParams();
+
+	this.injectInstanceIDbuffer;
+	this.inject2InstanceIDbuffer;
 
 	this.texPos =[];
 }
@@ -78,12 +81,15 @@ ngeometryVolume.prototype = {
 		this._bbox.maxV = maxV;
 		this._bbox.minV = minV;
 
-		/*this.createGvTexture("gvTexture0", this.gvTexture0);
+		this.createGvTexture("gvTexture0", this.gvTexture0);
 		this.createGvTexture("gvTexture1", this.gvTexture1);
-		this.createGvTexture("gvTexture2", this.gvTexture2);*/
-		this.gvTexture0 = new Float32Array(this._dimx* this._dimy * this._dimz * 4);
+		this.createGvTexture("gvTexture2", this.gvTexture2);
+		// create inject shader & select shader
+		this.createShader();
+		this.createInstanceIDBuffer();
+		/*this.gvTexture0 = new Float32Array(this._dimx* this._dimy * this._dimz * 4);
 		this.gvTexture1 = new Float32Array(this._dimx* this._dimy * this._dimz * 4);
-		this.gvTexture2 = new Float32Array(this._dimx* this._dimy * this._dimz * 4);
+		this.gvTexture2 = new Float32Array(this._dimx* this._dimy * this._dimz * 4);*/
 
 		this.texPos = new Uint16Array(this._dimx* this._dimy * this._dimz * 4);
 	},
@@ -97,429 +103,101 @@ ngeometryVolume.prototype = {
 			this._params.magFilter = gl.NEAREST;
 			this._params.minFilter = gl.NEAREST;
 		}
-		this._params.internalFormat = gl.LUMINANCE;
-		this._params.sourceFormat = gl.LUMINANCE;
+		this._params.internalFormat = gl.RGBA;
+		this._params.sourceFormat = gl.RGBA;
 		this._params.type = gl.FLOAT;
 
-		for(var i = 0; i < 4; i++) {
+		/*for(var i = 0; i < 4; i++) {
 			var name = textureName;
 			var channel = i;
 			name = name.concat(channel);
 			
 			var texImage = new Texture(name, this._params, this._dimx * this._dimz, this._dimy);
 			sourceTex.push(texImage);
+		}*/
+		var texImage = new Texture(textureName, this._params, this._dimx * this._dimz, this._dimy);
+		textureList.push(texImage);
+	},
+	createShader: function() {
+        // inject blocker2 shader
+        this.injectBlocker2Shader = new ShaderResource();
+        this.injectBlocker2Shader.initShaders("injectBlocker2Shader", injectBlocker2VertexShader, injectBlocker2FragmentShader);
+		shaderList.push(this.injectBlocker2Shader);
+
+		// inject blocker shader
+		this.injectBlockerShader = new ShaderResource();
+		this.injectBlockerShader.initShaders("injectBlockerShader", injectBlockerVertexShader, injectBlockerFragmentShader);
+		shaderList.push(this.injectBlockerShader);
+
+		// selectGv shader
+		this.selectGvShader = new ShaderResource();
+		this.selectGvShader.initShaders("selectGvShader", selectGvVertexShader, selectGvFragmentShader);
+		shaderList.push(this.selectGvShader);
+	},
+	createInstanceIDBuffer: function() {
+		// inject blocker2
+		var bufferSize = depthNormalBuffer.getBlockerBufferWidth() * depthNormalBuffer.getBlockerBufferHeight();
+		var posArray = [];
+
+		for(var i = 0; i < bufferSize; i++) {
+			posArray.push(i);
 		}
-		textureList.push(sourceTex);
+		var vbuffer = new nbuffer();
+		vbuffer.create("injectBlocker2", posArray, 1);
+		this.inject2InstanceIDbuffer = vbuffer;
+
+		// inject blocker
 	},
 	injectBlocker2: function(depthNormalBuffer, vpls) {
-		// clear gvTexture0 & texPos
-		for(var i = 0; i < this._dimx* this._dimy * this._dimz * 4; i++) {
-			this.gvTexture0[i] = 0.0;
-			this.texPos[i] = 0;
-		}
-
-		var blockerdata = new blockerData();
+		// sample view space geometry, inject blocking potentials into geometry volume
+		var shader = this.injectBlocker2Shader;
+		
+		// set shader
+		shader.UseProgram();
 		// get blocker depth normal texture
-		Texture.getUnsignedTexImage(5);
-		blockerdata.blockerTex = textureList[5].data;
-		// get blocker buffer data
-		blockerdata.width = depthNormalBuffer.getBlockerBufferWidth();
-		blockerdata.height = depthNormalBuffer.getBlockerBufferHeight();
-		blockerdata.nearFarPlane = depthNormalBuffer.getNearFarPlane();
-		blockerdata.invProj = depthNormalBuffer.getInvProj();
-		blockerdata.viewtoGridMatrix = depthNormalBuffer.getViewtoGridMatirx();
-		blockerdata.gridOrig = this._bbox.getMin();
+		shader.setUniformSampler("depth_normal_tex", 5);
+		shader.activeSampler(textureList[5].texture, 5);
+
+		shader.setUniform("width", depthNormalBuffer.getBlockerBufferWidth());
+		shader.setUniform("height", depthNormalBuffer.getBlockerBufferHeight());
+		
+		shader.setUniform2f("near_far_plane", depthNormalBuffer.getNearFarPlane());
+		shader.setUniform2f("inv_proj", depthNormalBuffer.getInvProj());
+		
+		shader.setMatrixUniforms("view_to_grid_mat", depthNormalBuffer.getViewtoGridMatirx());
+		shader.setUniform3f("grid_orig", this._bbox.getMin());
+
 		var bbsize = this._bbox.calculateDim();
-		blockerdata.gridSize.push(bbsize[0], bbsize[1], this._cellSize[2]);
-		blockerdata.cellArea = this._cellSize[0] * this._cellSize[1];
-		blockerdata.vpl = bufferList[2]._data;
-		blockerdata.numVpls = depthNormalBuffer.getBlockerBufferWidth() * depthNormalBuffer.getBlockerBufferHeight();
+		// geometry volume bbox
+		var gridSize = [bbsize[0], bbsize[1], this._cellSize[2]];
+		shader.setUniform3f("grid_size", gridSize);
+	
+		var cellArea = this._cellSize[0] * this._cellSize[1];
+		shader.setUniform("cell_area", cellArea);	
+		shader.setUniform("dimSize", this._dimx);
+		//var positionBuffer = vpls._buffer;
+        //shader.setAttributes(positionBuffer, "position", gl.FLOAT);
+        
+        shader.setAttributes(this.inject2InstanceIDbuffer._buffer, "instanceID", gl.FLOAT);
 
-		gl.clearColor(0.0, 0.0, 0.0, 0.0);
+        var numVpls = depthNormalBuffer.getBlockerBufferWidth() * depthNormalBuffer.getBlockerBufferHeight();
+	
+        gl.clearColor(0.0, 0.0, 0.0, 1.0);
         gl.clear(gl.COLOR_BUFFER_BIT);
+		gl.viewport(0, 0, this._dimx * this._dimz, this._dimy);
 
-		this.vertexShader(blockerdata);
-	},
-	vertexShader: function(blockerdata) {
-		// test data!
-		//blockerdata.blockerTex = a;
-
-		// gv0 texture vertex shader
-		// set instanceID as blocker_depth_normal texture (size) index
-		for(var i = 0; i < blockerdata.numVpls; i++) {
-			// sample depth and normal from geometry buffer
-			var samplePos = this.instanceIDtoPosition(i, blockerdata.width, blockerdata.height);
-			samplePos[0] += blockerdata.vpl[0] + ( 0.5 / blockerdata.width );
-			samplePos[1] += blockerdata.vpl[1] + ( 0.5 / blockerdata.height );
-			
-			var t = this.getTexValue(blockerdata.blockerTex, samplePos, blockerdata.width, blockerdata.height);
-			
-			// get view space depth
-			// exclude non depth value point
-			if( (t[0] != 255) || (t[1] != 255) || (t[2] != 255) || (t[3] != 255) ) {
-				var depth = t[0] / 255.0 + t[1] / 65025.0;
-				var depth2 = depth;
-				depth = depth * blockerdata.nearFarPlane[1] + blockerdata.nearFarPlane[0];
-				
-				// position in view space
-				var viewPos = [ 2.0 * samplePos[0] - 1.0, 2.0 * samplePos[1] - 1.0, -1.0 ];
-				viewPos[0] = viewPos[0] * blockerdata.invProj[0];
-				viewPos[1] = viewPos[1] * blockerdata.invProj[1];
-				
-				viewPos[0] = viewPos[0] * depth;
-				viewPos[1] = viewPos[1] * depth;
-				viewPos[2] = viewPos[2] * depth;
-				
-				// transform to grid space
-				var gridPos = [];
-				var temp = [];
-				mat4.multiplyVec4(blockerdata.viewtoGridMatrix, 
-								  [viewPos[0], viewPos[1], viewPos[2], 1.0], temp);
-				gridPos = [temp[0], temp[1], temp[2]];
-				
-				var pos = [];
-				pos[0] = (gridPos[0] - blockerdata.gridOrig[0]) / blockerdata.gridSize[0];
-				pos[1] = (gridPos[1] - blockerdata.gridOrig[1]) / blockerdata.gridSize[1];
-				pos[2] = (gridPos[2] - blockerdata.gridOrig[2]) / blockerdata.gridSize[2];
-				
-				var glPosition = [];
-				if( depth2 == 0.0 ) {
-					glPosition = [-1000.0, -1000.0, 0.0, 1.0];
-				} else {
-					glPosition = [pos[0], pos[1], pos[2], 1.0];
-				}
-
-				// blocker depth normal : normal (in [-1,1])
-				var viewSpacNormal = [];
-				viewSpacNormal[0] = 2.0 * (t[2]/255.0 - 0.5);
-				viewSpacNormal[1] = 2.0 * (t[3]/255.0 - 0.5);
-				
-				var n2 = [];
-				n2[0] = viewSpacNormal[0] * viewSpacNormal[0];
-				n2[1] = viewSpacNormal[1] * viewSpacNormal[1];
-				
-				// if normalz < 0, sqrt return NaN.
-				var normalz = (1.0 - n2[0] - n2[1]);
-				viewSpacNormal[2] = Math.sqrt(normalz);
-
-				// normal in grid space
-				var normal = [];
-				var tempMat3;
-				tempMat3 = mat4.toMat3(blockerdata.viewtoGridMatrix, tempMat3);
-				mat3.multiplyVec3(tempMat3, viewSpacNormal, normal);
-				
-				// surfel size in world space i.e. "unproject pixel" from clip space back to world
-				var surfel = [];
-				surfel[0] = 2.0 * depth * blockerdata.invProj[0] / blockerdata.width;
-				surfel[1] = 2.0 * depth * blockerdata.invProj[1] / blockerdata.height;
-				var surfelArea = surfel[0] * surfel[1];
-
-				// point weight = how much of the cell is covered by this surfel
-				var pointWeight = surfelArea / blockerdata.cellArea;	
-				var blocker = [], blockerNormal;
-				blockerNormal = this.createBlocker(normal);
-				blocker[0] = blockerNormal[0] * pointWeight;
-				blocker[1] = blockerNormal[1] * pointWeight;
-				blocker[2] = blockerNormal[2] * pointWeight;
-				blocker[3] = blockerNormal[3] * pointWeight;
-				
-				// geometry shader & fragment shader
-				// input blocker & fill color texture.
-				this.geometryShader( glPosition, blocker, this.gvTexture0 );
-			}
-		}
-	},
-	instanceIDtoPosition: function(instanceID, width, height) {
-		// translate instanceID to texture position
-		var pos = [];
-		pos.push(instanceID % width, Math.floor(instanceID / width));
-		pos = [pos[0]/width, pos[1]/height];
-		return pos;
-	},
-	getTexValue: function(texImage, samplePos, width, height) {
-		// Use sample position to lookup color from texture
-		var texelValue = [0, 0, 0, 0];
+		gl.enable(gl.BLEND);
+		gl.blendFunc(gl.ONE, gl.ONE);
+		// sample data from geometry buffer and inject blocking potentials
 		
-		// translate pos from (0, 0) - (1, 1) to (0, 0) - (512,288)
-		var y = Math.floor(samplePos[1] * height);
-		y = y * width * 4;
-		var x = Math.floor(samplePos[0] * width);
-		x = x * 4;
+		// draw this.
+		gl.drawArrays(gl.POINTS, 0, numVpls);
+		gl.bindTexture(gl.TEXTURE_2D, null);
+    	
+        gl.bindTexture(gl.TEXTURE_2D, textureList[11].texture);
+        gl.copyTexImage2D(gl.TEXTURE_2D, 0, textureList[11].params.internalFormat, 0, 0, 17*17, 17, 0);//this.dimx*this.dimz, this.dimy
+        gl.bindTexture(gl.TEXTURE_2D, null);
 
-		texelValue[0] = texImage[ y + x ];
-		texelValue[1] = texImage[ y + x + 1 ];
-		texelValue[2] = texImage[ y + x + 2 ];
-		texelValue[3] = texImage[ y + x + 3 ];
-
-		return texelValue;
-	},
-	createBlocker: function(normal) {
-		var blocker = [];
-		// clamped cosine function (see jose.pdf page 5)
-		var zhFirstBand = 0.88622689;
-		var zhSecondBand = 1.0233266;
-
-		var zhCoeff = [];
-		if(Math.abs(normal[1]) < 0.99) {
-			zhCoeff = this.rotateZhCoeff(normal);
-			blocker = [zhFirstBand, zhCoeff[0], zhCoeff[1], zhCoeff[2]];
-		} else {
-			var sign;
-			if(normal[1] > 0.0) { sign = 1.0; }
-			else if(normal[1] == 0.0) { sign = 0.0; }
-			else if(normal[1] < 0.0) { sign = -1.0; }
-			else { sign = 0.0; } // if normal.y() is NaN, set sign as zero.
-			blocker = [zhFirstBand, 0.0, zhSecondBand * sign, 0.0];
-		}
-		return blocker;
-	},
-	rotateZhCoeff: function(direction) {
-		var zhSecondBand = 1.0233266;
-		
-		// dir.xz as a new vec2 vector, then normalize this new vector
-		var theta12Cs = [];
-		var dir = [direction[0], direction[2]];
-		var dirLength = Math.sqrt(dir[0] * dir[0] + dir[1] * dir[1]);
-		theta12Cs[0] = dir[0] / dirLength;
-		theta12Cs[1] = dir[1] / dirLength;
-		
-		var phi12Cs = [];
-		phi12Cs[0] = Math.sqrt(1.0 - direction[1] * direction[1]);
-		phi12Cs[1] = direction[1];
-
-		var rotatedCoeffs = [];
-		rotatedCoeffs[0] = zhSecondBand * phi12Cs[0] * theta12Cs[1];
-		rotatedCoeffs[1] = zhSecondBand * phi12Cs[1];
-		rotatedCoeffs[2] = (-1) * zhSecondBand * phi12Cs[0] * theta12Cs[0];
-		
-		return rotatedCoeffs;
-	},
-	geometryShader: function(glPositionIn, blocker, colorTex) {
-		// geometry volume inject blocker from depth normal buffer
-		// this is geometry & fragment shader
-		// receive blocker to fill the color texture
-		var glPosition = [glPositionIn[0] * 2.0 - 1.0,
-						  glPositionIn[1] * 2.0 - 1.0,
-						  0.0, 1.0];
-
-		// gl_Layer = int(gl_PositionIn[0].z);
-		// equal to calcuate floor(glPositionIn.z())
-		var layer = Math.floor(glPositionIn[2]);
-		
-		var blockingPotential = blocker;
-		// map to screen view position
-		var xpos, ypos, x, y;
-		xpos = (glPosition[0] + 1) * this._dimx * 0.5;
-		ypos = (glPosition[1] + 1) * this._dimy * 0.5;
-		x = Math.floor(xpos);
-		y = Math.floor(ypos);
-
-		// add a minimum value, let the point which enough near next x & y point project to its position .
-		if(Math.ceil(xpos) - xpos < 0.00196) {
-			x = x + 1;
-		}
-		if(Math.ceil(ypos) - ypos < 0.00196) {
-			y = y + 1;
-		}		
-		
-		// store hit position in texture
-		var index = (layer* this._dimx * this._dimy * 4) + (y * this._dimx * 4) + (x * 4);
-		if(blocker[0] != 0.0) {
-			this.texPos[index + 0] += 1.0;
-		}
-		if(blocker[1] != 0.0) {
-			this.texPos[index + 1] += 1.0;
-		}
-		if(blocker[2] != 0.0) {
-			this.texPos[index + 2] += 1.0;
-		}
-		if(blocker[3] != 0.0) {
-			this.texPos[index + 3] += 1.0;
-		}
-		
-		// max blocker accumulated amount in one cell is 2048
-		if(this.texPos[index + 0] <= 2048) {
-			colorTex[index + 0] += blocker[0];
-		}
-		if(this.texPos[index + 1] <= 2048) {
-			colorTex[index + 1] += blocker[1];
-		}
-		if(this.texPos[index + 2] <= 2048) {
-			colorTex[index + 2] += blocker[2];
-		}
-		if(this.texPos[index + 3] <= 2048) {
-			colorTex[index + 3] += blocker[3];
-		}
-	},
-
-	// inject2 - inject blocker from rsm
-	injectBlocker: function(rsm, vpls) {
-		// clear gvTexture1
-		for(var i = 0; i < this._dimx * this._dimy * this._dimz * 4; i++) {
-			this.gvTexture1[i] = 0.0;
-		}
-
-		var blockerdata = new rsmBlockerData();
-
-		// get blocker buffer data from rsm
-		blockerdata.width = rsm.getWidth();
-		blockerdata.height = rsm.getHeight();
-
-		blockerdata.cellSizez = this._cellSize[2];
-		
-		// get rsm texture
-		blockerdata.rsmNormalx = textureList[0].data;
-		blockerdata.rsmNormaly = textureList[1].data;
-		blockerdata.rsmDepth = textureList[3].data;
-
-		// geometry volume grid dimension = light grid dimension - 1
-		// projRsmtogvGrid.zw - get texel center
-		blockerdata.projRsmtogvGrid[0] = (this._dimx - 1) / this._dimx;
-		blockerdata.projRsmtogvGrid[1] = (this._dimy - 1) / this._dimy;
-		blockerdata.projRsmtogvGrid[2] = 0.5 / (this._dimx);
-		blockerdata.projRsmtogvGrid[3] = 0.5 / (this._dimy);
-
-		// number of cells in one slice of light grid
-		var tcells = (this._dimx - 1) * (this._dimy - 1);
-		var t = rsm.getWidth() * rsm.getHeight();
-		blockerdata.pointWeight = tcells / t;
-		blockerdata.vpl = bufferList[2]._data;
-		blockerdata.numVpls = rsm.getWidth() * rsm.getHeight();
-		
-		gl.clearColor(0.0, 0.0, 0.0, 0.0);
-        gl.clear(gl.COLOR_BUFFER_BIT);
-        gl.viewport(0, 0, this._dimx, this._dimy);
-        // glEnable(GL_BLEND);
-		// glBlendFunc(GL_ONE, GL_ONE);
-		
-		// draw points instanced, sample data from RSM and inject blocking potentials 
-		this.injectVertexShader(blockerdata);
-	},
-	injectVertexShader: function(blockerdata) {
-		// test data
-		/*blockerdata.rsmNormalx = d;
-		blockerdata.rsmNormaly = e;
-		blockerdata.rsmDepth = f;*/
-
-		for(var i = 0; i < blockerdata.numVpls; i++) {
-			// sample depth and normal from RSM
-			var samplePos = this.instanceIDtoPosition(i, blockerdata.width, blockerdata.height);
-			samplePos[0] += blockerdata.vpl[0] + (0.5 / blockerdata.width);
-			samplePos[1] += blockerdata.vpl[1] + (0.5 / blockerdata.height);
-
-			var depth = this.getRsmTexValue(blockerdata.rsmDepth, samplePos, blockerdata.width, blockerdata.height);
-		
-			var normal = [];
-			normal[0] = this.getRsmTexValue(blockerdata.rsmNormalx, samplePos, blockerdata.width, blockerdata.height);
-			normal[1] = this.getRsmTexValue(blockerdata.rsmNormaly, samplePos, blockerdata.width, blockerdata.height);
-			normal[0] < -1.0 ? normal[0] = 0.0 : normal[0] = normal[0];
-			normal[1] < -1.0 ? normal[1] = 0.0 : normal[1] = normal[1];
-
-			var glPosition = [];
-			if( depth <= 0.0 ) {
-				// if vec2(depth) == vec2(0.0, 0.0), discard ,no geometry here
-				glPosition = [-1000.0, -1000.0, 0.0, 1.0];
-			} else {
-				// calculate position in geometry volume
-				var xpos = blockerdata.projRsmtogvGrid[0] * samplePos[0] + blockerdata.projRsmtogvGrid[2];
-				var ypos = blockerdata.projRsmtogvGrid[1] * samplePos[1] + blockerdata.projRsmtogvGrid[3];
-				var zpos = ( depth + blockerdata.cellSizez * 0.5 ) / blockerdata.cellSizez;
-				glPosition = [xpos, ypos, zpos, 1.0];
-				
-				var n2 = [];
-				n2[0] = normal[0] * normal[0];
-				n2[1] = normal[1] * normal[1];
-				normal[2] = Math.sqrt( 1.0 - n2[0] - n2[1] );
-
-				var blocker = [], blockerNormal;
-				blockerNormal = this.createBlocker(normal);
-				blocker[0] = blockerNormal[0] * blockerdata.pointWeight;
-				blocker[1] = blockerNormal[1] * blockerdata.pointWeight;
-				blocker[2] = blockerNormal[2] * blockerdata.pointWeight;
-				blocker[3] = blockerNormal[3] * blockerdata.pointWeight;
-				
-				// geometry shader & fragment shader
-				// input blocker & fill color texture.
-				this.geometryShader( glPosition, blocker, this.gvTexture1 );
-			}
-		}
-	},
-	getRsmTexValue: function(texImage, samplePos, width, height) {
-		// Use sample position to lookup color from texture
-		var texelValue = 0;
-		
-		// translate pos from (0, 0) - (1, 1) to (0, 0) - (512,512)
-		var y = Math.floor(samplePos[1] * height);
-		y = y * width;
-		var x = Math.floor(samplePos[0] * width);
-
-		// set value range (restriction)
-		// depth >= 0; normal in [-1, 1];
-		texelValue = texImage[ y + x ];
-
-		return texelValue;
-	},
-	selectBlockers: function(slices) {
-		// select blockers from rsm & geometry buffer
-		// clear gvTexture2
-		for(var i = 0; i < this._dimx* this._dimy * this._dimz * 4; i++) {
-			this.gvTexture2[i] = 0.0;
-		}
-
-		var blockerdata = new selectBlockerData();
-		blockerdata.surfaceTex = this.gvTexture0;
-		blockerdata.rsmTex = this.gvTexture1;
-
-		blockerdata.gridDepth = this._dimz;
-
-		var invGridSize = [1.0/this._dimx, 1.0/this._dimy, 1.0/this._dimz];
-		blockerdata.halfTexelSize = invGridSize[2] * 0.5;
-		
-		blockerdata.slices = bufferList[1]._data;
-		blockerdata.primcount = this._dimz;
-		
-		this.selectGvShader(blockerdata);
-	},
-	selectGvShader: function(blockerdata) {
-		// test data
-		/*blockerdata.surfaceTex = c;
-		blockerdata.rsmTex = g;*/
-
-		// select geometry volume blocker shader
-		// get blocker information from depth_normal blocker & rsm blocker texture
-		// if two blocking potential in the same cell, select one base on its magnitude
-		for(var i = 0; i < this._dimx * this._dimy * this._dimz * 4; i+=4) {
-			// looks up texture value
-			var surfaceBlocker = [blockerdata.surfaceTex[i],
-								  blockerdata.surfaceTex[i+1],
-								  blockerdata.surfaceTex[i+2],
-								  blockerdata.surfaceTex[i+3]];
-			var surfaceBlockerMag = surfaceBlocker[0] * surfaceBlocker[0] +
-									surfaceBlocker[1] * surfaceBlocker[1] +
-									surfaceBlocker[2] * surfaceBlocker[2] +
-									surfaceBlocker[3] * surfaceBlocker[3];
-			
-			var rsmBlocker = [blockerdata.rsmTex[i],
-							  blockerdata.rsmTex[i+1],
-							  blockerdata.rsmTex[i+2],
-							  blockerdata.rsmTex[i+3]];
-			var rsmBlockerMag = rsmBlocker[0] * rsmBlocker[0] +
-								rsmBlocker[1] * rsmBlocker[1] +
-								rsmBlocker[2] * rsmBlocker[2] +
-								rsmBlocker[3] * rsmBlocker[3];
-
-			// check if rsm blocker is visible, surface blocker is visible because it comes from a surface in view space
-			var angle = rsmBlocker[0] * surfaceBlocker[0] +
-						rsmBlocker[1] * surfaceBlocker[1] +
-						rsmBlocker[2] * surfaceBlocker[2] +
-						rsmBlocker[3] * surfaceBlocker[3];
-			var blocker = rsmBlockerMag > surfaceBlockerMag ? rsmBlocker : surfaceBlocker;
-			blocker = angle > 0.0 ? blocker : surfaceBlocker;
-
-			this.gvTexture2[i] = blocker[0];
-			this.gvTexture2[i+1] = blocker[1];
-			this.gvTexture2[i+2] = blocker[2];
-			this.gvTexture2[i+3] = blocker[3];
-		}
+		gl.disable(gl.BLEND);
 	}
 };

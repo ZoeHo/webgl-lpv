@@ -124,9 +124,8 @@ var blurFragmentShader =
 	" 	indirect += mix(indirect_light * weight2, indirect_light3 * weight2, contribution_values.y);			\n" +
 	" 	indirect += mix(indirect_light * weight2, indirect_light4 * weight2, contribution_values.z);			\n" +
 	" 	indirect += mix(indirect_light * weight1, indirect_light5 * weight1, contribution_values.w);			\n" +
-	" 																							\n" +
-	" 	//gl_FragColor.rgb = indirect;															\n" +
-	" 	gl_FragColor = vec4(indirect, 1.0);														\n" +
+	"																							\n" +
+	"	gl_FragColor = vec4(indirect, 1.0);														\n" +
 	" }																							\n";
 
 var blurVertexShader =

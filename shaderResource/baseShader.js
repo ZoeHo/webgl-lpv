@@ -37,7 +37,6 @@ var texVertexShader =
 
 var texFragmentShader = 
 	" precision mediump float;																	\n" +
-	" varying vec2 grid_space_normal;															\n" +
 	" 																							\n" +
 	" float shift_right (float v, float amt) { 													\n" +
 	"     v = floor(v) + 0.5; 																	\n" +

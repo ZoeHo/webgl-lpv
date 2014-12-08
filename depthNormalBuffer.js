@@ -93,7 +93,7 @@ ndepthNormalBuffer.prototype = {
         var gridSpaceRotation = light.getGridSpaceRotation();
         mat4.multiply(gridSpaceRotation, toWorld, this._fromViewtoGrid);
 
-        positionBuffer = bufferList[0]._buffer;
+        var positionBuffer = bufferList[0]._buffer;
         shader.setAttributes(positionBuffer, "position", gl.FLOAT);
         shader.setAttributes(vertexNormalBuffer, "normal", gl.FLOAT);
 
