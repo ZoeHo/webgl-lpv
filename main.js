@@ -70,7 +70,9 @@ function display() {
         // gpu
         // inject blocking potentials into geometry volume
         grid.inject(geometryVolume, depthNormalBuffer);
-        
+        // inject blocking potentials from RSM
+        grid.inject2(geometryVolume, rsm);
+
         // cpu
         // inject blocking potentials into geometry volume
         /*grid.inject(geometryVolume, depthNormalBuffer);

@@ -147,6 +147,14 @@ ngeometryVolume.prototype = {
 		this.inject2InstanceIDbuffer = vbuffer;
 
 		// inject blocker
+		bufferSize = rsm.getWidth() * rsm.getHeight();
+		var posArray2 = [];
+		for(var i = 0; i < bufferSize; i++) {
+			posArray2.push(i);
+		}
+		var posbuffer = new nbuffer();
+		posbuffer.create("injectBlocker", posArray2, 1);
+		this.injectInstanceIDbuffer = posbuffer;
 	},
 	injectBlocker2: function(depthNormalBuffer, vpls) {
 		// sample view space geometry, inject blocking potentials into geometry volume
@@ -182,20 +190,77 @@ ngeometryVolume.prototype = {
 
         var numVpls = depthNormalBuffer.getBlockerBufferWidth() * depthNormalBuffer.getBlockerBufferHeight();
 	
-        gl.clearColor(0.0, 0.0, 0.0, 1.0);
+        gl.clearColor(0.0, 0.0, 0.0, 0.0);
         gl.clear(gl.COLOR_BUFFER_BIT);
 		gl.viewport(0, 0, this._dimx * this._dimz, this._dimy);
 
 		gl.enable(gl.BLEND);
 		gl.blendFunc(gl.ONE, gl.ONE);
-		// sample data from geometry buffer and inject blocking potentials
 		
-		// draw this.
+		// sample data from geometry buffer and inject blocking potentials
 		gl.drawArrays(gl.POINTS, 0, numVpls);
 		gl.bindTexture(gl.TEXTURE_2D, null);
     	
         gl.bindTexture(gl.TEXTURE_2D, textureList[11].texture);
         gl.copyTexImage2D(gl.TEXTURE_2D, 0, textureList[11].params.internalFormat, 0, 0, 17*17, 17, 0);//this.dimx*this.dimz, this.dimy
+        gl.bindTexture(gl.TEXTURE_2D, null);
+
+		gl.disable(gl.BLEND);
+	},
+	injectBlocker: function(rsm, vpls) {
+		// sample RSM, inject blocking potentials into geometry volume
+		var shader = this.injectBlockerShader;
+		
+		// set shader
+		shader.UseProgram();
+		// get rsm depth & normal texture
+		shader.setUniformSampler("depth_tex", 3);
+		shader.activeSampler(textureList[3].texture, 3);
+
+		shader.setUniformSampler("normalx_tex", 0);
+		shader.activeSampler(textureList[0].texture, 0);
+
+		shader.setUniformSampler("normaly_tex", 1);
+		shader.activeSampler(textureList[1].texture, 1);
+
+		shader.setUniform("width", rsm.getWidth());
+		shader.setUniform("height", rsm.getHeight());
+
+		shader.setUniform("cell_size_z", this._cellSize[2]);
+	
+		// geometry volume grid dimension = light grid dimension - 1				
+		var projRsmtogvGrid = [0.0, 0.0, 0.0, 0.0];
+		projRsmtogvGrid[0] = (this._dimx - 1) / (this._dimx);
+		projRsmtogvGrid[1] = (this._dimy - 1) / (this._dimy);
+		// texel center
+		projRsmtogvGrid[2] = 0.5 / (this._dimx);
+		projRsmtogvGrid[3] = 0.5 / (this._dimy);
+		shader.setUniform4f("proj_rsm_to_gv_grid", projRsmtogvGrid);
+
+		// number of cells in one slice of light grid
+		var tcells = (this._dimx - 1) * (this._dimy - 1);
+		var t = rsm.getWidth() * rsm.getHeight();
+		var pointWeight = tcells / t;
+		shader.setUniform("point_weight", pointWeight);
+		shader.setUniform("dimSize", this._dimx);
+
+		shader.setAttributes(this.injectInstanceIDbuffer._buffer, "instanceID", gl.FLOAT);
+
+        var numVpls = rsm.getWidth() * rsm.getHeight();
+
+        gl.clearColor(0.0, 0.0, 0.0, 0.0);
+        gl.clear(gl.COLOR_BUFFER_BIT);
+		gl.viewport(0, 0, this._dimx * this._dimz, this._dimy);
+
+		gl.enable(gl.BLEND);
+		gl.blendFunc(gl.ONE, gl.ONE);
+
+		// draw this. sample data from RSM and inject blocking potentials
+		gl.drawArrays(gl.POINTS, 0, numVpls);
+		gl.bindTexture(gl.TEXTURE_2D, null);
+    	
+        gl.bindTexture(gl.TEXTURE_2D, textureList[12].texture);
+        gl.copyTexImage2D(gl.TEXTURE_2D, 0, textureList[12].params.internalFormat, 0, 0, 17*17, 17, 0);//this.dimx*this.dimz, this.dimy
         gl.bindTexture(gl.TEXTURE_2D, null);
 
 		gl.disable(gl.BLEND);

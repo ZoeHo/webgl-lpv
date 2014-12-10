@@ -10,8 +10,8 @@ var injectBlocker2FragmentShader =
 	" }										\n";
 
 var injectBlocker2VertexShader = 
-	" //attribute vec2 position; 																\n" +
-	" attribute float instanceID;																\n" +
+	" //attribute vec2 position; 															\n" +
+	" attribute float instanceID;															\n" +
 	"																						\n" +
 	" uniform float width;																	\n" +
 	" uniform float height;																	\n" +
@@ -23,7 +23,7 @@ var injectBlocker2VertexShader =
 	" uniform vec3 grid_size;																\n" +
 	" uniform float cell_area;																\n" +
 	" uniform float dimSize; 																\n" +
-	"																							\n" +
+	"																						\n" +
 	" varying vec4 blocking_potential;														\n" +
 	"																						\n" +
 	" vec4 geometryPosition(in vec4 glPositionIn) {											\n" +
