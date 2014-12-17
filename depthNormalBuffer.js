@@ -131,6 +131,7 @@ ndepthNormalBuffer.prototype = {
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
         // draw full screen resample texture
         this.drawResampleTexture();
+        shader.unbindSampler();
     },
     getScreenPositionBuffer: function() {
         var positionBuffer;

@@ -59,6 +59,7 @@ function ngeometryVolume() {
 
 	this.injectInstanceIDbuffer;
 	this.inject2InstanceIDbuffer;
+	this.selectGvPosBuffer;
 
 	this.texPos =[];
 }
@@ -155,6 +156,14 @@ ngeometryVolume.prototype = {
 		var posbuffer = new nbuffer();
 		posbuffer.create("injectBlocker", posArray2, 1);
 		this.injectInstanceIDbuffer = posbuffer;
+
+		// selectGv position buffer
+		var posArray3 = [
+			-1, -1, 1, -1, -1, 1,
+         	-1,  1, 1, -1,  1, 1 ];
+        var selectPosbuffer = new nbuffer();
+        selectPosbuffer.create("selectGv", posArray3, 2);
+        this.selectGvPosBuffer = selectPosbuffer;
 	},
 	injectBlocker2: function(depthNormalBuffer, vpls) {
 		// sample view space geometry, inject blocking potentials into geometry volume
@@ -194,6 +203,7 @@ ngeometryVolume.prototype = {
         gl.clear(gl.COLOR_BUFFER_BIT);
 		gl.viewport(0, 0, this._dimx * this._dimz, this._dimy);
 
+		gl.disable(gl.DEPTH_TEST);
 		gl.enable(gl.BLEND);
 		gl.blendFunc(gl.ONE, gl.ONE);
 		
@@ -206,6 +216,8 @@ ngeometryVolume.prototype = {
         gl.bindTexture(gl.TEXTURE_2D, null);
 
 		gl.disable(gl.BLEND);
+		gl.enable(gl.DEPTH_TEST);
+		shader.unbindSampler();
 	},
 	injectBlocker: function(rsm, vpls) {
 		// sample RSM, inject blocking potentials into geometry volume
@@ -252,17 +264,47 @@ ngeometryVolume.prototype = {
         gl.clear(gl.COLOR_BUFFER_BIT);
 		gl.viewport(0, 0, this._dimx * this._dimz, this._dimy);
 
+		gl.disable(gl.DEPTH_TEST);
 		gl.enable(gl.BLEND);
 		gl.blendFunc(gl.ONE, gl.ONE);
 
 		// draw this. sample data from RSM and inject blocking potentials
 		gl.drawArrays(gl.POINTS, 0, numVpls);
 		gl.bindTexture(gl.TEXTURE_2D, null);
-    	
+
         gl.bindTexture(gl.TEXTURE_2D, textureList[12].texture);
         gl.copyTexImage2D(gl.TEXTURE_2D, 0, textureList[12].params.internalFormat, 0, 0, 17*17, 17, 0);//this.dimx*this.dimz, this.dimy
         gl.bindTexture(gl.TEXTURE_2D, null);
 
 		gl.disable(gl.BLEND);
+		gl.enable(gl.DEPTH_TEST);
+		shader.unbindSampler();
+	},
+	selectBlockers: function(slices) {
+		// select blocking potentials based on magnitude
+		var shader = this.selectGvShader;
+		// set shader
+		shader.UseProgram();
+
+		shader.setUniformSampler("gv_from_rsm", 12);
+		shader.activeSampler(textureList[12].texture, 12);
+
+		shader.setUniformSampler("gv_from_visible_surface", 11);
+		shader.activeSampler(textureList[11].texture, 11);
+		
+		shader.setAttributes( this.selectGvPosBuffer._buffer, "position", gl.FLOAT);
+		
+		gl.clearColor(0.0, 0.0, 0.0, 0.0);
+        gl.clear(gl.COLOR_BUFFER_BIT);
+		gl.viewport(0, 0, this._dimx * this._dimz, this._dimy);
+
+	    gl.drawArrays(gl.TRIANGLES, 0, this.selectGvPosBuffer._buffer.numItems);
+	    gl.bindTexture(gl.TEXTURE_2D, null);
+
+	    gl.bindTexture(gl.TEXTURE_2D, textureList[13].texture);
+        gl.copyTexImage2D(gl.TEXTURE_2D, 0, textureList[13].params.internalFormat, 0, 0, 17*17, 17, 0);//this.dimx*this.dimz, this.dimy
+        gl.bindTexture(gl.TEXTURE_2D, null);
+
+		shader.unbindSampler();
 	}
 };

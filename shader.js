@@ -149,6 +149,11 @@ ShaderResource.prototype.activeSampler = function(texture, activeID) {
     gl.bindTexture(gl.TEXTURE_2D, texture);
 };
 
+ShaderResource.prototype.unbindSampler = function() {
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, null);
+}
+
 ShaderResource.prototype.setAttributes = function(buffer, attributeName, type) {
     var attributeLocation;
     attributeLocation = this.GetAttribute(attributeName);
