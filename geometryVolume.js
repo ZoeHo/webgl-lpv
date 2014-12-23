@@ -200,7 +200,7 @@ ngeometryVolume.prototype = {
         var numVpls = depthNormalBuffer.getBlockerBufferWidth() * depthNormalBuffer.getBlockerBufferHeight();
 	
         gl.clearColor(0.0, 0.0, 0.0, 0.0);
-        gl.clear(gl.COLOR_BUFFER_BIT);
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 		gl.viewport(0, 0, this._dimx * this._dimz, this._dimy);
 
 		gl.disable(gl.DEPTH_TEST);
@@ -211,8 +211,8 @@ ngeometryVolume.prototype = {
 		gl.drawArrays(gl.POINTS, 0, numVpls);
 		gl.bindTexture(gl.TEXTURE_2D, null);
     	
-        gl.bindTexture(gl.TEXTURE_2D, textureList[11].texture);
-        gl.copyTexImage2D(gl.TEXTURE_2D, 0, textureList[11].params.internalFormat, 0, 0, 17*17, 17, 0);//this.dimx*this.dimz, this.dimy
+        gl.bindTexture(gl.TEXTURE_2D, textureList[17].texture);
+        gl.copyTexImage2D(gl.TEXTURE_2D, 0, textureList[17].params.internalFormat, 0, 0, 17*17, 17, 0);//this.dimx*this.dimz, this.dimy
         gl.bindTexture(gl.TEXTURE_2D, null);
 
 		gl.disable(gl.BLEND);
@@ -272,8 +272,8 @@ ngeometryVolume.prototype = {
 		gl.drawArrays(gl.POINTS, 0, numVpls);
 		gl.bindTexture(gl.TEXTURE_2D, null);
 
-        gl.bindTexture(gl.TEXTURE_2D, textureList[12].texture);
-        gl.copyTexImage2D(gl.TEXTURE_2D, 0, textureList[12].params.internalFormat, 0, 0, 17*17, 17, 0);//this.dimx*this.dimz, this.dimy
+        gl.bindTexture(gl.TEXTURE_2D, textureList[18].texture);
+        gl.copyTexImage2D(gl.TEXTURE_2D, 0, textureList[18].params.internalFormat, 0, 0, 17*17, 17, 0);//this.dimx*this.dimz, this.dimy
         gl.bindTexture(gl.TEXTURE_2D, null);
 
 		gl.disable(gl.BLEND);
@@ -286,11 +286,11 @@ ngeometryVolume.prototype = {
 		// set shader
 		shader.UseProgram();
 
-		shader.setUniformSampler("gv_from_rsm", 12);
-		shader.activeSampler(textureList[12].texture, 12);
+		shader.setUniformSampler("gv_from_rsm", 18);
+		shader.activeSampler(textureList[18].texture, 18);
 
-		shader.setUniformSampler("gv_from_visible_surface", 11);
-		shader.activeSampler(textureList[11].texture, 11);
+		shader.setUniformSampler("gv_from_visible_surface", 17);
+		shader.activeSampler(textureList[17].texture, 17);
 		
 		shader.setAttributes( this.selectGvPosBuffer._buffer, "position", gl.FLOAT);
 		
@@ -301,8 +301,8 @@ ngeometryVolume.prototype = {
 	    gl.drawArrays(gl.TRIANGLES, 0, this.selectGvPosBuffer._buffer.numItems);
 	    gl.bindTexture(gl.TEXTURE_2D, null);
 
-	    gl.bindTexture(gl.TEXTURE_2D, textureList[13].texture);
-        gl.copyTexImage2D(gl.TEXTURE_2D, 0, textureList[13].params.internalFormat, 0, 0, 17*17, 17, 0);//this.dimx*this.dimz, this.dimy
+	    gl.bindTexture(gl.TEXTURE_2D, textureList[19].texture);
+        gl.copyTexImage2D(gl.TEXTURE_2D, 0, textureList[19].params.internalFormat, 0, 0, 17*17, 17, 0);//this.dimx*this.dimz, this.dimy
         gl.bindTexture(gl.TEXTURE_2D, null);
 
 		shader.unbindSampler();

@@ -75,6 +75,9 @@ function display() {
         // select blocking potentials from geometry volume 0 & 1 (based on magnitude)
         grid.selectGrid(geometryVolume);
 
+        // inject & propagate virtual point light
+        grid.injectVpls(rsm, geometryVolume);
+        
         // cpu
         // inject blocking potentials into geometry volume
         /*grid.inject(geometryVolume, depthNormalBuffer);

@@ -289,7 +289,7 @@ function drawTexture(width, height, textureID) {
     gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
 
     texShader.setAttributes( buffer, "a_position", gl.FLOAT);
-
+    texShader.setUniform("channel", 0.0);
     var resolutionLocation = gl.getUniformLocation(texShader.shaderProgram, "u_resolution");
     gl.uniform2f(resolutionLocation, width, height);
     
