@@ -55,8 +55,7 @@ function ngeometryVolume() {
 	this.gvTexture0 = [];
 	this.gvTexture1 = [];
 	this.gvTexture2 = [];
-	this._params = new TextureParams();
-
+	
 	this.injectInstanceIDbuffer;
 	this.inject2InstanceIDbuffer;
 	this.selectGvPosBuffer;
@@ -82,9 +81,9 @@ ngeometryVolume.prototype = {
 		this._bbox.maxV = maxV;
 		this._bbox.minV = minV;
 
-		this.createGvTexture("gvTexture0", this.gvTexture0);
-		this.createGvTexture("gvTexture1", this.gvTexture1);
-		this.createGvTexture("gvTexture2", this.gvTexture2);
+		this.gvTexture0 = this.createGvTexture("gvTexture0");
+		this.gvTexture1 = this.createGvTexture("gvTexture1");
+		this.gvTexture2 = this.createGvTexture("gvTexture2");
 		// create inject shader & select shader
 		this.createShader();
 		this.createInstanceIDBuffer();
@@ -97,16 +96,17 @@ ngeometryVolume.prototype = {
 	// one light intensity texture has 4 channel - RGBA,
 	// texture internal format is gl.LUMINANCE
 	createGvTexture: function(textureName, sourceTex) {
+		var params = new TextureParams();
 		if(textureName === "gvTexture2") {
-			this._params.magFilter = gl.LINEAR;
-			this._params.minFilter = gl.LINEAR;
+			params.magFilter = gl.LINEAR;
+			params.minFilter = gl.LINEAR;
 		} else {
-			this._params.magFilter = gl.NEAREST;
-			this._params.minFilter = gl.NEAREST;
+			params.magFilter = gl.NEAREST;
+			params.minFilter = gl.NEAREST;
 		}
-		this._params.internalFormat = gl.RGBA;
-		this._params.sourceFormat = gl.RGBA;
-		this._params.type = gl.FLOAT;
+		params.internalFormat = gl.RGBA;
+		params.sourceFormat = gl.RGBA;
+		params.type = gl.FLOAT;
 
 		/*for(var i = 0; i < 4; i++) {
 			var name = textureName;
@@ -116,8 +116,9 @@ ngeometryVolume.prototype = {
 			var texImage = new Texture(name, this._params, this._dimx * this._dimz, this._dimy);
 			sourceTex.push(texImage);
 		}*/
-		var texImage = new Texture(textureName, this._params, this._dimx * this._dimz, this._dimy);
+		var texImage = new Texture(textureName, params, this._dimx * this._dimz, this._dimy);
 		textureList.push(texImage);
+		return texImage;
 	},
 	createShader: function() {
         // inject blocker2 shader

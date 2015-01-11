@@ -46,6 +46,7 @@ function ngrid() {
 	this.sourceGrid = 0;
 	this.destGrid = 1;
 	this.lightVolume = 2;
+	this.gridtoShow = 0;
 
 	this._dimx = 0.0;
 	this._dimy = 0.0;
@@ -67,6 +68,7 @@ function ngrid() {
 	this.injectVplShader;
 
 	this.injectVplPosBuffer;
+	this.propagatePosBuffer;
 
 	this.geometryTexture;
 	this.intensityTex;
@@ -131,8 +133,17 @@ ngrid.prototype = {
 		this.injectVplShader.initShaders("injectVplShader", injectVplVertexShader, injectVplFragmentShader);
 		shaderList.push(this.injectVplShader);
 
-		// propagate without blocking
+		// propagate without blocking, define no-blocking
+		this.propagationNoBlockShader = new ShaderResource();
+		var propagateNoBlockingShader = "#define NO_BLOCKING\n";
+		propagateNoBlockingShader = propagateNoBlockingShader.concat(propagateFragmentShader);
+		this.propagationNoBlockShader.initShaders("propagateNoBlockingShader", propagateVertexShader, propagateNoBlockingShader); 
+		shaderList.push(this.propagationNoBlockShader);
+
 		// propagate with blocking
+		this.propagationShader = new ShaderResource();
+		this.propagationShader.initShaders("propagateShader", propagateVertexShader, propagateFragmentShader);
+		shaderList.push(this.propagationShader);
 		// accumulate all iterations
 	},
 	createInstanceIDBuffer: function() {
@@ -145,6 +156,14 @@ ngrid.prototype = {
 		var vbuffer = new nbuffer();
 		vbuffer.create("injectVpls", posArray, 1);
 		this.injectVplPosBuffer = vbuffer;
+
+		// propagate
+		/*var posArray2 = [
+			-1, -1, 1, -1, -1, 1,
+         	-1,  1, 1, -1,  1, 1 ];
+		var vbuffer2 = new nbuffer();
+		vbuffer2.create("propagatePos", posArray2, 2);
+		this.propagatePosBuffer = vbuffer2;*/
 	},
 	createGridTexture: function() {
 		this._params.internalFormat = gl.RGBA;
@@ -222,7 +241,12 @@ ngrid.prototype = {
 		this.injectVplsLightChannel(rsm, geometryVolume, 1, 11);
 		this.injectVplsLightChannel(rsm, geometryVolume, 2, 14);
 
-		
+		this.gridtoShow = this.sourceGrid;
+
+		if(this._iterations) {
+			// propagate start
+			this.propagateAccumulate(geometryVolume.gvTexture2);
+		}
 	},
 	injectVplsLightChannel: function(rsm, geometryVolume, channel, textureID) {
 		// use channel ID to separate RGB three light intensity texture
@@ -283,5 +307,95 @@ ngrid.prototype = {
 		gl.disable(gl.BLEND);
 		gl.enable(gl.DEPTH_TEST);
 		shader.unbindSampler();
+	},
+	propagateAccumulate: function(gvTexture) {
+		// propagate and accumulate result of each propagation step
+		this.propagate(gvTexture, true);
+	},
+	propagate: function(gvTexture, firstIteration) {
+		// first iteration : propagate without blocking potentials
+		// blocking potentials to avoid self shadowing
+		var shader = (!this._useGeomVolume || firstIteration) ? this.propagationNoBlockShader : this.propagationShader;
+		// set shader
+		shader.UseProgram();
+
+		shader.setUniform("grid_depth", this._dimz);
+		var invGridSize = [1.0 / this._dimx, 1.0 / this._dimy, 1.0 / this._dimz];
+		shader.setUniform3f("inv_grid_size", invGridSize);
+		shader.setUniform("half_texel_size", invGridSize[2] * 0.5);
+		shader.setUniform("halfDimSize", invGridSize[2] * 0.5);
+
+		// test data
+		var redpixels = new Float32Array(256*16*4);
+		var value = 1.0 / (16.0*16.0*16.0*4.0);
+		for(var i = 0; i < 256*16*4; i+=4) {
+			redpixels[i] = initR[i];
+			redpixels[i+1] = initR[i+1];
+			redpixels[i+2] = initR[i+2];
+			redpixels[i+3] = initR[i+3];
+		}
+		gl.bindTexture(gl.TEXTURE_2D, textureList[8].texture);
+    	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 256, 16, 0, gl.RGBA, gl.FLOAT, redpixels );
+    	gl.bindTexture(gl.TEXTURE_2D, null);
+
+    	var greenpixels = new Float32Array(256*16*4);
+		for(var i = 0; i < 256*16*4; i+=4) {
+			greenpixels[i] = initG[i];
+			greenpixels[i+1] = initG[i+1];
+			greenpixels[i+2] = initG[i+2];
+			greenpixels[i+3] = initG[i+3];
+		}
+		gl.bindTexture(gl.TEXTURE_2D, textureList[11].texture);
+    	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 256, 16, 0, gl.RGBA, gl.FLOAT, greenpixels );
+    	gl.bindTexture(gl.TEXTURE_2D, null);
+
+    	var bluepixels = new Float32Array(256*16*4);
+		for(var i = 0; i < 256*16*4; i+=4) {
+			bluepixels[i] = initB[i];
+			bluepixels[i+1] = initB[i+1];
+			bluepixels[i+2] = initB[i+2];
+			bluepixels[i+3] = initB[i+3];
+		}
+		gl.bindTexture(gl.TEXTURE_2D, textureList[14].texture);
+    	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 256, 16, 0, gl.RGBA, gl.FLOAT, bluepixels );
+    	gl.bindTexture(gl.TEXTURE_2D, null);
+    	// test data
+
+		// bind light volume textures - store light intensities
+		shader.setUniformSampler("coeffs_red", (8+this.sourceGrid));
+		shader.activeSampler(textureList[(8+this.sourceGrid)].texture, (8+this.sourceGrid));
+		
+		shader.setUniformSampler("coeffs_green", (11+this.sourceGrid));
+		shader.activeSampler(textureList[(11+this.sourceGrid)].texture, (11+this.sourceGrid));
+		
+		shader.setUniformSampler("coeffs_blue", (14+this.sourceGrid));
+		shader.activeSampler(textureList[(14+this.sourceGrid)].texture, (14+this.sourceGrid));
+
+		// to do.. if shader = propagateShader
+		if(shader == this.propagationShader) {
+			// needs to complete
+		
+			// use geometry volume which prevents light from being propagated through blocking geometry
+			// set sampler geometry_volume
+			// set uniform proj_grid_to_gv
+		}
+
+		shader.setAttributes(this.slices._buffer, "position", gl.FLOAT);
+		shader.setUniform("channel", 0.0);
+
+		gl.clearColor(0.0, 0.0, 0.0, 1.0);
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+		gl.viewport(0, 0, this._dimx * this._dimz, this._dimy);
+
+		gl.drawArrays(gl.TRIANGLES, 0, this.slices._buffer.numItems);
+		shader.unbindSampler();
+		/*
+		ndraw_arrays::draw_triangles draw_triangles(*slices, *propagation_shader);
+
+		draw_triangles.bind();
+		// propagate
+		draw_triangles.draw_instanced(dim_z);
+		draw_triangles.unbind();
+		*/
 	}
 };
