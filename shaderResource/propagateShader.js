@@ -85,16 +85,16 @@ var propagateFragmentShader =
 	" 																						\n" +
 	" // read sh vectors storing the light intensity										\n" +
 	" void get_vpls(vec3 source_cell, out vec4 red, out vec4 green, out vec4 blue) {		\n" +
-	" 	red = sampleAs3DTexture(coeffs_red, source_cell);											\n" +
-	" 	green = sampleAs3DTexture(coeffs_green, source_cell);										\n" +
-	" 	blue = sampleAs3DTexture(coeffs_blue, source_cell);											\n" +
+	" 	red = sampleAs3DTexture(coeffs_red, source_cell);									\n" +
+	" 	green = sampleAs3DTexture(coeffs_green, source_cell);								\n" +
+	" 	blue = sampleAs3DTexture(coeffs_blue, source_cell);									\n" +
 	" }																						\n" +
 	" 																						\n" +
 	" #ifndef NO_BLOCKING																	\n" +
 	" // read sh vector storing the blocking potential										\n" +
 	" vec4 sample_blocking_potential(vec3 sample_pos) {										\n" +
 	" 	vec3 gv_sample_pos = sample_pos * proj_grid_to_gv[0].xyz + proj_grid_to_gv[1].xyz;	\n" +
-	" 	vec4 blocking_potential = sampleAs3DTexture(geometry_volume, gv_sample_pos);				\n" +
+	" 	vec4 blocking_potential = sampleAs3DTexture(geometry_volume, gv_sample_pos);		\n" +
 	" 	return blocking_potential;															\n" +
 	" }																						\n" +
 	" 																						\n" +
@@ -487,7 +487,6 @@ var propagateFragmentShader =
 	" 	total_vpl_r += vpl_r * s;															\n" +
 	" 	total_vpl_g += vpl_g * s;															\n" +
 	" 	total_vpl_b += vpl_b * s;															\n" +
-	"	vec4 test = total_vpl_r;	\n" +
 	"  																						\n" +
 	" 	// get light intensity sh vectors from the cell in front of this cell 				\n" +
 	" 	grid_sample_pos = vec3(tex_coord.xy, sample_pos_pos.z); 							\n" +
@@ -553,11 +552,10 @@ var propagateFragmentShader =
 	" 	total_vpl_g /= pi; 																	\n" +
 	" 	total_vpl_b /= pi; 																	\n" +
 	"  																						\n" +
-	" 	/*// store light intensity as SH vectors 												\n" +
-	" 	if(channel == 0.0) { gl_FragColor = total_vpl_r; } 								\n" +
-	" 	if(channel == 1.0) { gl_FragColor = total_vpl_g; } 								\n" +
-	" 	if(channel == 2.0) { gl_FragColor = total_vpl_b; }*/ 								\n" +
-	"	gl_FragColor = vec4(test.rgb, 1.0);				\n" +
+	" 	// store light intensity as SH vectors 												\n" +
+	" 	if(channel == 0.0) { gl_FragColor = vec4(total_vpl_r.rgb, 1.0); } 					\n" +
+	" 	if(channel == 1.0) { gl_FragColor = vec4(total_vpl_g.rgb, 1.0); } 					\n" +
+	" 	if(channel == 2.0) { gl_FragColor = vec4(total_vpl_b.rgb, 1.0); } 					\n" +
 	" }											 											\n";
 
 var propagateVertexShader = 

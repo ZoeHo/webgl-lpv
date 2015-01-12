@@ -63,7 +63,7 @@ function ngrid() {
 	this._light = [];
 
 	this.propagationNoBlockShader;
-	this.accumulationShader;
+	this.accumulateShader;
 	this.propagationShader;
 	this.injectVplShader;
 
@@ -84,7 +84,7 @@ ngrid.prototype = {
 		this.slices = [];
 
 		this.propagationNoBlockShader = [];
-		this.accumulationShader = [];
+		this.accumulateShader = [];
 		this.propagationShader = [];
 		this.injectVplShader = [];
 
@@ -144,7 +144,11 @@ ngrid.prototype = {
 		this.propagationShader = new ShaderResource();
 		this.propagationShader.initShaders("propagateShader", propagateVertexShader, propagateFragmentShader);
 		shaderList.push(this.propagationShader);
+		
 		// accumulate all iterations
+		this.accumulateShader = new ShaderResource();
+		this.accumulateShader.initShaders("accumulateShader", accumulateVertexShader, accumulateFragmentShader);
+		shaderList.push(this.accumulateShader);
 	},
 	createInstanceIDBuffer: function() {
 		// inject vpls
@@ -309,22 +313,6 @@ ngrid.prototype = {
 		shader.unbindSampler();
 	},
 	propagateAccumulate: function(gvTexture) {
-		// propagate and accumulate result of each propagation step
-		this.propagate(gvTexture, true);
-	},
-	propagate: function(gvTexture, firstIteration) {
-		// first iteration : propagate without blocking potentials
-		// blocking potentials to avoid self shadowing
-		var shader = (!this._useGeomVolume || firstIteration) ? this.propagationNoBlockShader : this.propagationShader;
-		// set shader
-		shader.UseProgram();
-
-		shader.setUniform("grid_depth", this._dimz);
-		var invGridSize = [1.0 / this._dimx, 1.0 / this._dimy, 1.0 / this._dimz];
-		shader.setUniform3f("inv_grid_size", invGridSize);
-		shader.setUniform("half_texel_size", invGridSize[2] * 0.5);
-		shader.setUniform("halfDimSize", invGridSize[2] * 0.5);
-
 		// test data
 		var redpixels = new Float32Array(256*16*4);
 		var value = 1.0 / (16.0*16.0*16.0*4.0);
@@ -361,6 +349,28 @@ ngrid.prototype = {
     	gl.bindTexture(gl.TEXTURE_2D, null);
     	// test data
 
+		// propagate and accumulate result of each propagation step
+		// first vpl propagate, stage 0 propagate: source = intensity 0, destination = intensity 1
+		this.propagate(gvTexture, true, 0, 8+this.destGrid);
+		this.propagate(gvTexture, true, 1, 11+this.destGrid);
+		this.propagate(gvTexture, true, 2, 14+this.destGrid);
+
+		// first accumulate vpls
+		this.accumulate(this.destGrid, this.sourceGrid);
+	},
+	propagate: function(gvTexture, firstIteration, channel, textureID) {
+		// first iteration : propagate without blocking potentials
+		// blocking potentials to avoid self shadowing
+		var shader = (!this._useGeomVolume || firstIteration) ? this.propagationNoBlockShader : this.propagationShader;
+		// set shader
+		shader.UseProgram();
+
+		shader.setUniform("grid_depth", this._dimz);
+		var invGridSize = [1.0 / this._dimx, 1.0 / this._dimy, 1.0 / this._dimz];
+		shader.setUniform3f("inv_grid_size", invGridSize);
+		shader.setUniform("half_texel_size", invGridSize[2] * 0.5);
+		shader.setUniform("halfDimSize", invGridSize[2] * 0.5);
+
 		// bind light volume textures - store light intensities
 		shader.setUniformSampler("coeffs_red", (8+this.sourceGrid));
 		shader.activeSampler(textureList[(8+this.sourceGrid)].texture, (8+this.sourceGrid));
@@ -381,21 +391,75 @@ ngrid.prototype = {
 		}
 
 		shader.setAttributes(this.slices._buffer, "position", gl.FLOAT);
-		shader.setUniform("channel", 0.0);
+		shader.setUniform("channel", channel);
 
 		gl.clearColor(0.0, 0.0, 0.0, 1.0);
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 		gl.viewport(0, 0, this._dimx * this._dimz, this._dimy);
 
 		gl.drawArrays(gl.TRIANGLES, 0, this.slices._buffer.numItems);
-		shader.unbindSampler();
-		/*
-		ndraw_arrays::draw_triangles draw_triangles(*slices, *propagation_shader);
+		
+		gl.bindTexture(gl.TEXTURE_2D, textureList[textureID].texture);
+        gl.copyTexImage2D(gl.TEXTURE_2D, 0, textureList[textureID].params.internalFormat, 0, 0, 16*16, 16, 0);
+        gl.bindTexture(gl.TEXTURE_2D, null);
 
-		draw_triangles.bind();
-		// propagate
-		draw_triangles.draw_instanced(dim_z);
-		draw_triangles.unbind();
-		*/
+		shader.unbindSampler();
+	},
+	accumulate: function(sourceGrid, destGrid) {
+		// add vpls in each propagation step
+		this.accumulateLightChannel(sourceGrid, destGrid, 0, 8+destGrid);
+		this.accumulateLightChannel(sourceGrid, destGrid, 1, 11+destGrid);
+		this.accumulateLightChannel(sourceGrid, destGrid, 2, 14+destGrid);
+	},
+	accumulateLightChannel: function(sourceGrid, destGrid, channel, textureID){
+		// use channel ID to separate RGB three accumulation texture
+		// 0 [red], 1 [green], 2 [blue]
+		var shader = this.accumulateShader;
+
+		// set shader
+		shader.UseProgram();
+
+		shader.setUniform("grid_depth", this._dimz);
+		var invGridSize = [1.0 / this._dimx, 1.0 / this._dimy, 1.0 / this._dimz];
+		shader.setUniform("half_texel_size", invGridSize[2] * 0.5);
+		shader.setUniform("halfDimSize", invGridSize[2] * 0.5);
+
+		// bind light volume textures - store light intensities
+		// source sampler
+		shader.setUniformSampler("spectral_coeffs_r", (8+sourceGrid));
+		shader.activeSampler(textureList[(8+sourceGrid)].texture, (8+sourceGrid));
+
+		shader.setUniformSampler("spectral_coeffs_g", (11+sourceGrid));
+		shader.activeSampler(textureList[(11+sourceGrid)].texture, (11+sourceGrid));
+		
+		shader.setUniformSampler("spectral_coeffs_b", (14+sourceGrid));
+		shader.activeSampler(textureList[(14+sourceGrid)].texture, (14+sourceGrid));
+
+		// destination sampler
+		shader.setUniformSampler("dest_coeffs_r", (8+destGrid));
+		shader.activeSampler(textureList[(8+destGrid)].texture, (8+destGrid));
+
+		shader.setUniformSampler("dest_coeffs_g", (11+destGrid));
+		shader.activeSampler(textureList[(11+destGrid)].texture, (11+destGrid));
+		
+		shader.setUniformSampler("dest_coeffs_b", (14+destGrid));
+		shader.activeSampler(textureList[(14+destGrid)].texture, (14+destGrid));
+
+		// set attribute - slices
+		shader.setAttributes(this.slices._buffer, "position", gl.FLOAT);
+		shader.setUniform("channel", channel);
+
+		// add vpls into light volume
+		gl.clearColor(0.0, 0.0, 0.0, 1.0);
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+		gl.viewport(0, 0, this._dimx * this._dimz, this._dimy);
+
+		gl.drawArrays(gl.TRIANGLES, 0, this.slices._buffer.numItems);
+
+		gl.bindTexture(gl.TEXTURE_2D, textureList[textureID].texture);
+        gl.copyTexImage2D(gl.TEXTURE_2D, 0, textureList[textureID].params.internalFormat, 0, 0, 16*16, 16, 0);
+        gl.bindTexture(gl.TEXTURE_2D, null);
+
+        shader.unbindSampler();
 	}
 };
