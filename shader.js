@@ -138,6 +138,12 @@ ShaderResource.prototype.setUniformBuffer = function(uniformName, buffer) {
     gl.uniform1fv(uniformLocation, buffer);
 };
 
+ShaderResource.prototype.setUniform3fv = function(uniformName, buffer) {
+    var uniformLocation;
+    uniformLocation = this.GetUniform(uniformName);
+    gl.uniform3fv(uniformLocation, buffer);
+}
+
 ShaderResource.prototype.setUniformSampler = function(uniformName, textureID) {
     var uniformLocation;
     uniformLocation = this.GetUniform(uniformName);

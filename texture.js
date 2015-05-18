@@ -109,3 +109,66 @@ function TextureParams() {
     this.type = gl.UNSIGNED_BYTE;
     this.anisotropyDegree = 0;
 }
+
+// Test drawing RGB texture 
+function drawRGBTexture(width, height, textureID) {
+    gl.viewport(0, 0, width, height);
+    gl.clearColor(0.0, 0.0, 0.0, 1.0);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+    texShader = new ShaderResource();
+    texShader.initShaders("textureShader", texVertexShader, texFragmentShader);
+    texShader.UseProgram();
+
+    var positionLocation;
+    var buffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+         -1, -1, 1, -1, -1, 1,
+         -1,  1, 1, -1,  1, 1]), gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(positionLocation);
+    buffer.itemSize = 2;
+    gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
+
+    texShader.setAttributes( buffer, "a_position", gl.FLOAT);
+    texShader.setUniform("channel", 0.0);
+    var resolutionLocation = gl.getUniformLocation(texShader.shaderProgram, "u_resolution");
+    gl.uniform2f(resolutionLocation, width, height);
+    
+    gl.bindTexture(gl.TEXTURE_2D, textureList[textureID].texture);
+    //gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE, 512, 512, 0, gl.LUMINANCE, gl.FLOAT, pixels );
+    gl.drawArrays(gl.TRIANGLES, 0, 6);
+    gl.bindTexture(gl.TEXTURE_2D, null);
+}
+
+// Test drawing RGBA texture which format is gl.FLOAT 
+// call rgbaTexFragmentShader to set alpha = 1.0 and show this texture.
+function drawRGBATexture(width, height, textureID) {
+    gl.viewport(0, 0, width, height);
+    gl.clearColor(0.0, 0.0, 0.0, 1.0);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+    texShader = new ShaderResource();
+    texShader.initShaders("textureShader", texVertexShader, rgbaTexFragmentShader);
+    texShader.UseProgram();
+
+    var positionLocation;
+    var buffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+         -1, -1, 1, -1, -1, 1,
+         -1,  1, 1, -1,  1, 1]), gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(positionLocation);
+    buffer.itemSize = 2;
+    gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
+
+    texShader.setAttributes( buffer, "a_position", gl.FLOAT);
+    texShader.setUniform("channel", 0.0);
+    var resolutionLocation = gl.getUniformLocation(texShader.shaderProgram, "u_resolution");
+    gl.uniform2f(resolutionLocation, width, height);
+    
+    gl.bindTexture(gl.TEXTURE_2D, textureList[textureID].texture);
+    //gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE, 512, 512, 0, gl.LUMINANCE, gl.FLOAT, pixels );
+    gl.drawArrays(gl.TRIANGLES, 0, 6);
+    gl.bindTexture(gl.TEXTURE_2D, null);
+}

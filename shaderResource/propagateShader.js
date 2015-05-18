@@ -15,13 +15,41 @@ var propagateFragmentShader =
 	" 																						\n" +
 	" uniform vec3 inv_grid_size;															\n" +
 	" #ifndef NO_BLOCKING																	\n" +
-	" uniform vec3 proj_grid_to_gv[2];														\n" +
+	" uniform vec3 proj_grid_to_gvx;														\n" +
+	" uniform vec3 proj_grid_to_gvy;														\n" +
 	" uniform float half_texel_size;														\n" +
 	" #endif																				\n" +
 	" 																						\n" +
 	" varying vec3 tex_coord;																\n" +
 	" 																						\n" +
-	" vec4 sampleAs3DTexture( sampler2D texImage, vec3 grid_coords ) {                  \n" +
+	" vec4 sampleGeometry3DTexture(sampler2D texImage, vec3 grid_coords, vec3 sign) {                \n" +
+    "     // geometry volume dim = 17                               \n" +
+    "	  float texture_size = 17.0;								\n" +
+    "	  float texel_size = 1.0 / 17.0;							\n" +
+    "     float half_texel_size = texel_size * 0.5;                 \n" +
+    "	  vec2 trans_grid_coords;									\n" +
+    "	  vec3 tex_coords = grid_coords;							\n" +
+    "                                                               \n" +
+    "	  if(sign.x == 0.0) {										\n" +
+    "	  	tex_coords.x += texel_size;								\n" +
+    "	  } else if(sign.x == 1.0){									\n" +
+    "	  	tex_coords.x += half_texel_size;						\n" +
+    "	  }															\n" +
+    " 	  if(fract(tex_coords.y * texture_size) > 0.0) {	 		\n" +
+    "		tex_coords.y += texel_size; 							\n" +
+    "	  } else {													\n" +
+    "		tex_coords.y += half_texel_size; 						\n" +
+    "	  }															\n" +
+    " 	  if(sign.z == 0.0) { 										\n" +
+    "		tex_coords.z -= half_texel_size;						\n" +
+    "	  }															\n" +   
+    "	  trans_grid_coords.x = (tex_coords.x + (tex_coords.z * texture_size)) / texture_size ;	\n" +
+    "	  trans_grid_coords.y = tex_coords.y;						\n" + 
+    "     vec4 blocker = texture2D(texImage, trans_grid_coords);  \n" +
+    "     return blocker;                                                                    \n" +
+    " }                                                                                 \n" +
+    "                                                                                   \n" +
+	" vec4 sampleAs3DTexture(sampler2D texImage, vec3 grid_coords) {                  \n" +
     "     // light volume dim = 16                                                      \n" +
     "     float half_texel_size = 0.0625 * 0.5;                                         \n" +
     "     grid_coords.z -= half_texel_size;                                             \n" +
@@ -29,16 +57,16 @@ var propagateFragmentShader =
     "     vec2 trans_grid_coords;                                                       \n" +
     "                                                                                   \n" +
     "     // get vexel color in z0 slice                                                \n" +
-    "     if( grid_coords.z >= 1.0 ) {                                                  \n" +
-    "         tex_coords.z = fract( grid_coords.z );                                    \n" +
+    "     if(grid_coords.z >= 1.0) {                                                  \n" +
+    "         tex_coords.z = fract(grid_coords.z);                                    \n" +
     "     }                                                                             \n" +
-    "     if( grid_coords.z < 0.0 ) {                                                   \n" +
+    "     if(grid_coords.z < 0.0) {                                                   \n" +
     "         tex_coords.z = 1.0 - 0.0625;                                              \n" +
     "     }                                                                             \n" +
     "                                                                                   \n" +
-    "     trans_grid_coords.x = ( tex_coords.x + /*floor*/( tex_coords.z * 16.0 ) ) / 16.0; \n" +
+    "     trans_grid_coords.x = (tex_coords.x + /*floor*/( tex_coords.z * 16.0 ) ) / 16.0; \n" +
     "     trans_grid_coords.y = tex_coords.y;                                           \n" +
-    "     vec4 z0 = texture2D( texImage, trans_grid_coords );                           \n" +
+    "     vec4 z0 = texture2D(texImage, trans_grid_coords);                           \n" +
     "                                                                                   \n" +
     "     /*// get vexel color in z1 slice                                                \n" +
     "     if( grid_coords.z < 0.0 || grid_coords.z >= ( 1.0 - 0.0625*0.5 ) ) {          \n" +
@@ -58,6 +86,245 @@ var propagateFragmentShader =
     "     return z0;                                                                    \n" +
     " }                                                                                 \n" +
     "                                                                                   \n" +
+	" vec4 vpl_add_contribution(vec4 vpl, vec4 contribution) {						\n" +
+	" 	// add vpl color and light contribution										\n" +
+	" 	vpl.x = vpl.x + contribution.x;												\n" +
+	" 	vpl.y = vpl.y + contribution.y;												\n" +
+	" 	vpl.z = vpl.z + contribution.z;												\n" +
+	" 	vpl.w = vpl.w + contribution.w;												\n" +
+	" 	return vpl;																	\n" +
+	" }																				\n" +
+	" 																				\n" +
+	" #ifndef NO_BLOCKING															\n" +
+	" vec4 sample_bp_from_left(vec3 sample_pos) {									\n" +
+	" 	// sample blocking potential from the left cell								\n" +
+	" 	vec3 gv_sample_pos;															\n" +
+	" 	gv_sample_pos.x = sample_pos.x * proj_grid_to_gvx.x;						\n" +
+	" 																				\n" +
+	" 	vec4 blocking, temp;														\n" +
+	" 	// step 1	x, y+1, z+1														\n" +
+	"	gv_sample_pos.y = sample_pos.y * proj_grid_to_gvx.y + proj_grid_to_gvy.y; 	\n" +
+	"	gv_sample_pos.z = sample_pos.z * proj_grid_to_gvx.z + proj_grid_to_gvy.z; 	\n" +
+	" 	temp = sampleGeometry3DTexture(geometry_volume, gv_sample_pos, vec3(0.0,0.0,1.0));	  	\n" +
+	" 	blocking = vpl_add_contribution(blocking, temp);							\n" +
+	" 																				\n" +
+	" 	// step 2	x, y, z+1														\n" +
+	" 	gv_sample_pos.y = sample_pos.y * proj_grid_to_gvx.y;						\n" +
+	" 	gv_sample_pos.z = sample_pos.z * proj_grid_to_gvx.z + proj_grid_to_gvy.z;	\n" +
+	" 	temp = sampleGeometry3DTexture(geometry_volume, gv_sample_pos, vec3(0.0,0.0,1.0));		\n" +
+	" 	blocking = vpl_add_contribution(blocking, temp);							\n" +
+	" 																				\n" +
+	" 	// step 3	x, y+1, z														\n" +
+	" 	gv_sample_pos.y = sample_pos.y * proj_grid_to_gvx.y + proj_grid_to_gvy.y;	\n" +
+	" 	gv_sample_pos.z = sample_pos.z * proj_grid_to_gvx.z;						\n" +
+	" 	temp = sampleGeometry3DTexture(geometry_volume, gv_sample_pos, vec3(0.0,0.0,0.0));	  	\n" +
+	" 	blocking = vpl_add_contribution(blocking, temp);							\n" +
+	" 																				\n" +
+	" 	// step 4	x, y, z															\n" +
+	" 	gv_sample_pos.y = sample_pos.y * proj_grid_to_gvx.y;						\n" +
+	" 	gv_sample_pos.z = sample_pos.z * proj_grid_to_gvx.z;						\n" +
+	" 	temp = sampleGeometry3DTexture(geometry_volume, gv_sample_pos, vec3(0.0,0.0,0.0));		\n" +
+	" 	blocking = vpl_add_contribution(blocking, temp);							\n" +
+	" 																				\n" +
+	" 	// average the value														\n" +
+	" 	blocking = blocking / 4.0;													\n" +
+	" 	return blocking;															\n" +
+	" }																				\n" +
+	"																				\n" +
+	" vec4 sample_bp_from_right(vec3 sample_pos) {									\n" +
+	" 	// sample blocking potential from the right cell							\n" +
+	" 	vec3 gv_sample_pos;															\n" +
+	" 	gv_sample_pos.x = sample_pos.x * proj_grid_to_gvx.x + proj_grid_to_gvy.x;	\n" +
+	" 																				\n" +
+	" 	vec4 blocking, temp;														\n" +
+	" 	// step 1	x+1, y+1, z+1													\n" +
+	"	gv_sample_pos.y = sample_pos.y * proj_grid_to_gvx.y + proj_grid_to_gvy.y; 	\n" +
+	"	gv_sample_pos.z = sample_pos.z * proj_grid_to_gvx.z + proj_grid_to_gvy.z; 	\n" +
+	" 	temp = sampleGeometry3DTexture(geometry_volume, gv_sample_pos, vec3(1.0,0.0,1.0));	  	\n" +
+	" 	blocking = vpl_add_contribution(blocking, temp);							\n" +
+	" 																				\n" +
+	" 	// step 2	x+1, y, z+1														\n" +
+	" 	gv_sample_pos.y = sample_pos.y * proj_grid_to_gvx.y;						\n" +
+	" 	gv_sample_pos.z = sample_pos.z * proj_grid_to_gvx.z + proj_grid_to_gvy.z;	\n" +
+	" 	temp = sampleGeometry3DTexture(geometry_volume, gv_sample_pos, vec3(1.0,0.0,1.0));		\n" +
+	" 	blocking = vpl_add_contribution(blocking, temp);							\n" +
+	" 																				\n" +
+	" 	// step 3	x+1, y+1, z														\n" +
+	" 	gv_sample_pos.y = sample_pos.y * proj_grid_to_gvx.y + proj_grid_to_gvy.y;	\n" +
+	" 	gv_sample_pos.z = sample_pos.z * proj_grid_to_gvx.z;						\n" +
+	" 	temp = sampleGeometry3DTexture(geometry_volume, gv_sample_pos, vec3(1.0,0.0,0.0));	  	\n" +
+	" 	blocking = vpl_add_contribution(blocking, temp);							\n" +
+	" 																				\n" +
+	" 	// step 4	x+1, y, z														\n" +
+	" 	gv_sample_pos.y = sample_pos.y * proj_grid_to_gvx.y;						\n" +
+	" 	gv_sample_pos.z = sample_pos.z * proj_grid_to_gvx.z;						\n" +
+	" 	temp = sampleGeometry3DTexture(geometry_volume, gv_sample_pos, vec3(1.0,0.0,0.0));		\n" +
+	" 	blocking = vpl_add_contribution(blocking, temp);							\n" +
+	" 																				\n" +
+	" 	// average the value														\n" +
+	" 	blocking = blocking / 4.0;													\n" +
+	" 	return blocking;															\n" +
+	" }																				\n" +
+	"																				\n" +
+	" vec4 sample_bp_from_above(vec3 sample_pos) {									\n" +
+	" 	// sample blocking potential from the above cell							\n" +
+	" 	vec3 gv_sample_pos;															\n" +
+	" 	gv_sample_pos.y = sample_pos.y * proj_grid_to_gvx.y + proj_grid_to_gvy.y;	\n" +
+	" 																				\n" +
+	" 	vec4 blocking, temp;														\n" +
+	" 	// step 1	x+1, y+1, z+1													\n" +
+	"	gv_sample_pos.x = sample_pos.x * proj_grid_to_gvx.x + proj_grid_to_gvy.x; 	\n" +
+	"	gv_sample_pos.z = sample_pos.z * proj_grid_to_gvx.z + proj_grid_to_gvy.z; 	\n" +
+	" 	temp = sampleGeometry3DTexture(geometry_volume, gv_sample_pos, vec3(0.0,1.0,1.0));	  	\n" +
+	" 	blocking = vpl_add_contribution(blocking, temp);							\n" +
+	" 																				\n" +
+	" 	// step 2	x, y+1, z+1														\n" +
+	" 	gv_sample_pos.x = sample_pos.x * proj_grid_to_gvx.x;						\n" +
+	" 	gv_sample_pos.z = sample_pos.z * proj_grid_to_gvx.z + proj_grid_to_gvy.z;	\n" +
+	" 	temp = sampleGeometry3DTexture(geometry_volume, gv_sample_pos, vec3(1.0,1.0,1.0));		\n" +
+	" 	blocking = vpl_add_contribution(blocking, temp);							\n" +
+	" 																				\n" +
+	" 	// step 3	x+1, y+1, z														\n" +
+	" 	gv_sample_pos.x = sample_pos.x * proj_grid_to_gvx.x + proj_grid_to_gvy.x;	\n" +
+	" 	gv_sample_pos.z = sample_pos.z * proj_grid_to_gvx.z;						\n" +
+	" 	temp = sampleGeometry3DTexture(geometry_volume, gv_sample_pos, vec3(0.0,1.0,0.0));	  	\n" +
+	" 	blocking = vpl_add_contribution(blocking, temp);							\n" +
+	" 																				\n" +
+	" 	// step 4	x, y+1, z														\n" +
+	" 	gv_sample_pos.x = sample_pos.x * proj_grid_to_gvx.x;						\n" +
+	" 	gv_sample_pos.z = sample_pos.z * proj_grid_to_gvx.z;						\n" +
+	" 	temp = sampleGeometry3DTexture(geometry_volume, gv_sample_pos, vec3(1.0,1.0,0.0));		\n" +
+	" 	blocking = vpl_add_contribution(blocking, temp);							\n" +
+	" 																				\n" +
+	" 	// average the value														\n" +
+	" 	blocking = blocking / 4.0;													\n" +
+	" 	return blocking;															\n" +
+	" }																				\n" +
+	"																				\n" +
+	" vec4 sample_bp_from_below(vec3 sample_pos) {									\n" +
+	" 	// sample blocking potential from the below cell							\n" +
+	" 	vec3 gv_sample_pos;															\n" +
+	" 	gv_sample_pos.y = sample_pos.y * proj_grid_to_gvx.y;						\n" +
+	" 																				\n" +
+	" 	vec4 blocking, temp;														\n" +
+	" 	// step 1	x+1, y, z+1														\n" +
+	"	gv_sample_pos.x = sample_pos.x * proj_grid_to_gvx.x + proj_grid_to_gvy.x; 	\n" +
+	"	gv_sample_pos.z = sample_pos.z * proj_grid_to_gvx.z + proj_grid_to_gvy.z; 	\n" +
+	" 	temp = sampleGeometry3DTexture(geometry_volume, gv_sample_pos, vec3(0.0,0.0,1.0));	  	\n" +
+	" 	blocking = vpl_add_contribution(blocking, temp);							\n" +
+	" 																				\n" +
+	" 	// step 2	x, y, z+1														\n" +
+	" 	gv_sample_pos.x = sample_pos.x * proj_grid_to_gvx.x;						\n" +
+	" 	gv_sample_pos.z = sample_pos.z * proj_grid_to_gvx.z + proj_grid_to_gvy.z;	\n" +
+	" 	temp = sampleGeometry3DTexture(geometry_volume, gv_sample_pos, vec3(1.0,0.0,1.0));		\n" +
+	" 	blocking = vpl_add_contribution(blocking, temp);							\n" +
+	" 																				\n" +
+	" 	// step 3	x+1, y, z														\n" +
+	" 	gv_sample_pos.x = sample_pos.x * proj_grid_to_gvx.x + proj_grid_to_gvy.x;	\n" +
+	" 	gv_sample_pos.z = sample_pos.z * proj_grid_to_gvx.z;						\n" +
+	" 	temp = sampleGeometry3DTexture(geometry_volume, gv_sample_pos, vec3(0.0,0.0,0.0));	  	\n" +
+	" 	blocking = vpl_add_contribution(blocking, temp);							\n" +
+	" 																				\n" +
+	" 	// step 4	x, y, z															\n" +
+	" 	gv_sample_pos.x = sample_pos.x * proj_grid_to_gvx.x;						\n" +
+	" 	gv_sample_pos.z = sample_pos.z * proj_grid_to_gvx.z;						\n" +
+	" 	temp = sampleGeometry3DTexture(geometry_volume, gv_sample_pos, vec3(1.0,0.0,0.0));		\n" +
+	" 	blocking = vpl_add_contribution(blocking, temp);							\n" +
+	" 																				\n" +
+	" 	// average the value														\n" +
+	" 	blocking = blocking / 4.0;													\n" +
+	" 	return blocking;															\n" +
+	" }																				\n" +
+	"																				\n" +
+	" vec4 sample_bp_from_behind(vec3 sample_pos) {									\n" +
+	" 	// sample blocking potential from the behind cell							\n" +
+	" 	vec3 gv_sample_pos;															\n" +
+	" 	gv_sample_pos.z = sample_pos.z * proj_grid_to_gvx.z;						\n" +
+	" 																				\n" +
+	" 	vec4 blocking, temp;														\n" +
+	" 	// step 1	x+1, y+1, z														\n" +
+	"	gv_sample_pos.x = sample_pos.x * proj_grid_to_gvx.x + proj_grid_to_gvy.x; 	\n" +
+	"	gv_sample_pos.y = sample_pos.y * proj_grid_to_gvx.y + proj_grid_to_gvy.y; 	\n" +
+	" 	temp = sampleGeometry3DTexture(geometry_volume, gv_sample_pos, vec3(0.0,1.0,1.0));	  	\n" +
+	" 	blocking = vpl_add_contribution(blocking, temp);							\n" +
+	" 																				\n" +
+	" 	// step 2	x, y+1, z														\n" +
+	" 	gv_sample_pos.x = sample_pos.x * proj_grid_to_gvx.x;						\n" +
+	" 	gv_sample_pos.y = sample_pos.y * proj_grid_to_gvx.y + proj_grid_to_gvy.y;	\n" +
+	" 	temp = sampleGeometry3DTexture(geometry_volume, gv_sample_pos, vec3(1.0,1.0,1.0));		\n" +
+	" 	blocking = vpl_add_contribution(blocking, temp);							\n" +
+	" 																				\n" +
+	" 	// step 3	x+1, y, z														\n" +
+	" 	gv_sample_pos.x = sample_pos.x * proj_grid_to_gvx.x + proj_grid_to_gvy.x;	\n" +
+	" 	gv_sample_pos.y = sample_pos.y * proj_grid_to_gvx.y;						\n" +
+	" 	temp = sampleGeometry3DTexture(geometry_volume, gv_sample_pos, vec3(0.0,0.0,1.0));	  	\n" +
+	" 	blocking = vpl_add_contribution(blocking, temp);							\n" +
+	" 																				\n" +
+	" 	// step 4	x, y, z															\n" +
+	" 	gv_sample_pos.x = sample_pos.x * proj_grid_to_gvx.x;						\n" +
+	" 	gv_sample_pos.y = sample_pos.y * proj_grid_to_gvx.y;						\n" +
+	" 	temp = sampleGeometry3DTexture(geometry_volume, gv_sample_pos, vec3(1.0,0.0,1.0));		\n" +
+	" 	blocking = vpl_add_contribution(blocking, temp);							\n" +
+	" 																				\n" +
+	" 	// average the value														\n" +
+	" 	blocking = blocking / 4.0;													\n" +
+	" 	return blocking;															\n" +
+	" }																				\n" +
+	" 																				\n" +
+	" vec4 sample_bp_from_front(vec3 sample_pos) {									\n" +
+	" 	// sample blocking potential from the front cell							\n" +
+	" 	vec3 gv_sample_pos;															\n" +
+	" 	gv_sample_pos.z = sample_pos.z * proj_grid_to_gvx.z + proj_grid_to_gvy.z;	\n" +
+	" 																				\n" +
+	" 	vec4 blocking, temp;														\n" +
+	" 	// step 1	x+1, y+1, z+1													\n" +
+	"	gv_sample_pos.x = sample_pos.x * proj_grid_to_gvx.x + proj_grid_to_gvy.x; 	\n" +
+	"	gv_sample_pos.y = sample_pos.y * proj_grid_to_gvx.y + proj_grid_to_gvy.y; 	\n" +
+	" 	temp = sampleGeometry3DTexture(geometry_volume, gv_sample_pos, vec3(0.0,1.0,0.0));	  	\n" +
+	" 	blocking = vpl_add_contribution(blocking, temp);							\n" +
+	" 																				\n" +
+	" 	// step 2	x, y+1, z+1														\n" +
+	" 	gv_sample_pos.x = sample_pos.x * proj_grid_to_gvx.x;						\n" +
+	" 	gv_sample_pos.y = sample_pos.y * proj_grid_to_gvx.y + proj_grid_to_gvy.y;	\n" +
+	" 	temp = sampleGeometry3DTexture(geometry_volume, gv_sample_pos, vec3(1.0,1.0,0.0));		\n" +
+	" 	blocking = vpl_add_contribution(blocking, temp);							\n" +
+	" 																				\n" +
+	" 	// step 3	x+1, y, z+1														\n" +
+	" 	gv_sample_pos.x = sample_pos.x * proj_grid_to_gvx.x + proj_grid_to_gvy.x;	\n" +
+	" 	gv_sample_pos.y = sample_pos.y * proj_grid_to_gvx.y;						\n" +
+	" 	temp = sampleGeometry3DTexture(geometry_volume, gv_sample_pos, vec3(0.0,0.0,0.0));	  	\n" +
+	" 	blocking = vpl_add_contribution(blocking, temp);							\n" +
+	" 																				\n" +
+	" 	// step 4	x, y, z+1														\n" +
+	" 	gv_sample_pos.x = sample_pos.x * proj_grid_to_gvx.x;						\n" +
+	" 	gv_sample_pos.y = sample_pos.y * proj_grid_to_gvx.y;						\n" +
+	" 	temp = sampleGeometry3DTexture(geometry_volume, gv_sample_pos, vec3(1.0,0.0,0.0));		\n" +
+	" 	blocking = vpl_add_contribution(blocking, temp);							\n" +
+	" 																				\n" +
+	" 	// average the value														\n" +
+	" 	blocking = blocking / 4.0;													\n" +
+	" 	return blocking;															\n" +
+	" }																				\n" +
+	"																				\n" +
+	" // input blocking potential from sample function, and output light intensity SH vectors vplR, vplG, vplB \n" +
+	" void apply_blocking_potential(in vec4 blocking_potential,  		\n" +
+	" 							in vec4 light,  						\n" +
+	" 							inout vec4 vpl_r, 						\n" +
+	" 							inout vec4 vpl_g, 						\n" +
+	" 							inout vec4 vpl_b) { 					\n" +
+	" 	const float blocking_max = 1.83; 								\n" +
+	"  																	\n" +
+	" 	// value depends on direction of light and blocking potential and magnitude of blocking potential   \n" +
+	" 	float b = max(dot(blocking_potential, light), 0.0);				\n" +
+	" 																	\n" +
+	" 	float c = 1.0 - b / blocking_max;								\n" +
+	" 	vpl_r = vpl_r * c;												\n" +
+	" 	vpl_g = vpl_g * c;												\n" +
+	" 	vpl_b = vpl_b * c; 												\n" +
+	" } 																\n" +
+	"																	\n" +
+	" #endif															\n" +
+	" 																	\n" +
 	" // calculate incident flux for a face of the destination cell							\n" +
 	" void create_vpl(in vec4 red, 															\n" +
 	" 			    in vec4 green, 															\n" +
@@ -93,13 +360,14 @@ var propagateFragmentShader =
 	" #ifndef NO_BLOCKING																	\n" +
 	" // read sh vector storing the blocking potential										\n" +
 	" vec4 sample_blocking_potential(vec3 sample_pos) {										\n" +
-	" 	vec3 gv_sample_pos = sample_pos * proj_grid_to_gv[0].xyz + proj_grid_to_gv[1].xyz;	\n" +
+	" 	//vec3 gv_sample_pos = sample_pos * proj_grid_to_gv[0].xyz + proj_grid_to_gv[1].xyz;	\n" +
+	" 	vec3 gv_sample_pos = sample_pos * proj_grid_to_gvx.xyz + proj_grid_to_gvy.xyz;	\n" +
 	" 	vec4 blocking_potential = sampleAs3DTexture(geometry_volume, gv_sample_pos);		\n" +
 	" 	return blocking_potential;															\n" +
 	" }																						\n" +
 	" 																						\n" +
 	" // apply blocking potential to reduce amout of light being propagated through blockers\n" +
-	" void apply_blocking_potential(in vec4 light, in vec3 sample_pos, 						\n" +
+	" void applyBlockingPotential(in vec4 light, in vec3 sample_pos, 						\n" +
 	" 							  inout vec4 vpl_r, inout vec4 vpl_g, inout vec4 vpl_b) {	\n" +
 	" 	const float blocking_max = 1.83;													\n" +
 	" 																						\n" +
@@ -206,7 +474,8 @@ var propagateFragmentShader =
 	" #ifndef NO_BLOCKING																	\n" +
 	"	// sample pos of blocking potential is between both cells							\n" +
 	" 	grid_sample_pos.x += half_texel_size;												\n" +
-	" 	apply_blocking_potential(vec4(0.88622689, 0.0, 0.0, -1.0233266), grid_sample_pos, red_in, green_in, blue_in);	\n" +
+	"	vec4 blocking = sample_bp_from_left(grid_sample_pos);								\n" +
+	"	apply_blocking_potential(blocking, vec4(0.88622689, 0.0, 0.0, -1.0233266), red_in, green_in, blue_in); \n" +
 	" #endif																				\n" +
 	" 																						\n" +
 	" 	const vec4 sh_basic_central_dir1 = vec4(0.28209481, 0.0, 0.25687355, -0.41563013);	\n" +
@@ -263,7 +532,8 @@ var propagateFragmentShader =
 	" #ifndef NO_BLOCKING																	\n" +
 	"	//sample pos of blocking potential is between both cells							\n" +
 	" 	grid_sample_pos.x -= half_texel_size; 												\n" +
-	" 	apply_blocking_potential(vec4(0.88622689, 0.0, 0.0, 1.0233266), grid_sample_pos, red_in, green_in, blue_in);\n" +
+	"	blocking = sample_bp_from_right(grid_sample_pos);									\n" +
+	"	apply_blocking_potential(blocking, vec4(0.88622689, 0.0, 0.0, 1.0233266), red_in, green_in, blue_in); \n" +
 	" #endif																				\n" +
 	" 																						\n" +
 	" 	const vec4 sh_basic_central_dir6 = vec4(0.28209481, 0.0, 0.25687355, 0.41563013);	\n" +
@@ -321,7 +591,8 @@ var propagateFragmentShader =
 	" #ifndef NO_BLOCKING 																	\n" +
 	"	//sample pos of blocking potential is between both cells 							\n" +
 	"	grid_sample_pos.y -= half_texel_size; 												\n" +
-	"	apply_blocking_potential(vec4(0.88622689, 0.0, -1.0233266, 0.0), grid_sample_pos, red_in, green_in, blue_in); \n" +
+	"	blocking = sample_bp_from_above(grid_sample_pos); 									\n" +
+	"	apply_blocking_potential(blocking, vec4(0.88622689, 0.0, -1.0233266, 0.0), red_in, green_in, blue_in); \n" +
 	" #endif 																				\n" +
 	" 																						\n" +
 	"	const vec4 sh_basic_central_dir16 = vec4(0.28209481, 0.0, -0.48860252, 0.0); 		\n" +
@@ -379,7 +650,8 @@ var propagateFragmentShader =
 	" #ifndef NO_BLOCKING																	\n" +
 	" 	//sample pos of blocking potential is between both cells 							\n" +
 	" 	grid_sample_pos.y += half_texel_size; 												\n" +
-	" 	apply_blocking_potential(vec4(0.88622689, 0.0, 1.0233266, 0.0), grid_sample_pos, red_in, green_in, blue_in);\n" +
+	"	blocking = sample_bp_from_below(grid_sample_pos); 									\n" +
+	"	apply_blocking_potential(blocking, vec4(0.88622689, 0.0, 1.0233266, 0.0), red_in, green_in, blue_in); \n" +
 	" #endif 																				\n" +
 	" 																						\n" +
 	" 	const vec4 sh_basic_central_dir11 = vec4(0.28209481, 0.0, 0.48860252, 0.0);			\n" +
@@ -437,7 +709,8 @@ var propagateFragmentShader =
 	" #ifndef NO_BLOCKING																	\n" +
 	" 	//sample pos of blocking potential is between both cells							\n" +
 	" 	grid_sample_pos.z += half_texel_size;												\n" +
-	" 	apply_blocking_potential(vec4(0.88622689, 1.0233266, 0.00000000, -0.00000000), grid_sample_pos, red_in, green_in, blue_in);	\n" +
+	"	blocking = sample_bp_from_behind(grid_sample_pos); 									\n" +
+	"	apply_blocking_potential(blocking, vec4(0.88622689, 1.0233266, 0.00000000, -0.00000000), red_in, green_in, blue_in); \n" +
 	" #endif																				\n" +
 	" 																						\n" +
 	" 	const vec4 sh_basic_central_dir21 = vec4(0.28209481, 0.48860252, 0.0, 0.0);			\n" +
@@ -495,7 +768,8 @@ var propagateFragmentShader =
 	" #ifndef NO_BLOCKING 																	\n" +
 	" 	//sample pos of blocking potential is between both cells 							\n" +
 	" 	grid_sample_pos.z -= half_texel_size; 												\n" +
-	" 	apply_blocking_potential(vec4(0.88622689, -1.0233266, 0.00000000, -0.00000000), grid_sample_pos, red_in, green_in, blue_in); \n" +
+	"	blocking = sample_bp_from_front(grid_sample_pos); 									\n" +
+	"	apply_blocking_potential(blocking, vec4(0.88622689, -1.0233266, 0.00000000, -0.00000000), red_in, green_in, blue_in); \n" +
 	" #endif																				\n" +
 	"  																						\n" +
 	" 	const vec4 sh_basic_central_dir26 = vec4(0.28209481, -0.48860252, 0.0, 0.0); 		\n" +
@@ -550,12 +824,16 @@ var propagateFragmentShader =
 	" 	const float pi = 3.141592;		 													\n" +
 	" 	total_vpl_r /= pi; 																	\n" +
 	" 	total_vpl_g /= pi; 																	\n" +
-	" 	total_vpl_b /= pi; 																	\n" +
+	" 	total_vpl_b /= pi; 																	\n" +		
 	"  																						\n" +
 	" 	// store light intensity as SH vectors 												\n" +
-	" 	if(channel == 0.0) { gl_FragColor = vec4(total_vpl_r.rgb, 1.0); } 					\n" +
-	" 	if(channel == 1.0) { gl_FragColor = vec4(total_vpl_g.rgb, 1.0); } 					\n" +
-	" 	if(channel == 2.0) { gl_FragColor = vec4(total_vpl_b.rgb, 1.0); } 					\n" +
+	" 	if(channel == 0.0) { gl_FragColor = total_vpl_r; } 					\n" +
+	" 	if(channel == 1.0) { gl_FragColor = total_vpl_g; } 					\n" +
+	" 	if(channel == 2.0) { gl_FragColor = total_vpl_b; } 					\n" +
+	" /*#ifndef NO_BLOCKING																	\n" +
+	"	vec4 test = total_vpl_r * pi; \n" +
+	"	gl_FragColor = vec4(test.rgb, 1.0);	\n" +
+	" #endif*/	\n" +
 	" }											 											\n";
 
 var propagateVertexShader = 

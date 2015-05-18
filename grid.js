@@ -347,20 +347,45 @@ ngrid.prototype = {
 		gl.bindTexture(gl.TEXTURE_2D, textureList[14].texture);
     	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 256, 16, 0, gl.RGBA, gl.FLOAT, bluepixels );
     	gl.bindTexture(gl.TEXTURE_2D, null);
+    	
+    	var gvpixels = new Float32Array(17*17*17*4);
+		for(var i = 0; i < 17*17*17*4; i+=4) {
+			gvpixels[i] = h[i];
+			gvpixels[i+1] = h[i+1];
+			gvpixels[i+2] = h[i+2];
+			gvpixels[i+3] = h[i+3];
+		}
+		gl.bindTexture(gl.TEXTURE_2D, textureList[19].texture);
+    	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 17*17, 17, 0, gl.RGBA, gl.FLOAT, gvpixels );
+    	gl.bindTexture(gl.TEXTURE_2D, null);
     	// test data
 
 		// propagate and accumulate result of each propagation step
 		// first vpl propagate, stage 0 propagate: source = intensity 0, destination = intensity 1
-		this.propagate(gvTexture, true, 0, 8+this.destGrid);
-		this.propagate(gvTexture, true, 1, 11+this.destGrid);
-		this.propagate(gvTexture, true, 2, 14+this.destGrid);
-
+		this.propagate(gvTexture, true);
 		// first accumulate vpls
 		this.accumulate(this.destGrid, this.sourceGrid);
+
+		var temp = this.lightVolume;
+		this.lightVolume = this.sourceGrid;
+		this.sourceGrid = this.destGrid;
+		this.destGrid = temp;
+		
+		for(var iteration = 1; iteration < 2/*this._iterations*/; iteration++) {
+			this.propagate(gvTexture, false);
+			this.accumulate(this.destGrid, this.lightVolume);
+			// need to swap
+		}
+		drawRGBATexture(16*16, 16, 14);
 	},
 	propagate: function(gvTexture, firstIteration, channel, textureID) {
 		// first iteration : propagate without blocking potentials
 		// blocking potentials to avoid self shadowing
+		this.propagateLightChannel(gvTexture, firstIteration, 0, 8+this.destGrid);
+		this.propagateLightChannel(gvTexture, firstIteration, 1, 11+this.destGrid);
+		this.propagateLightChannel(gvTexture, firstIteration, 2, 14+this.destGrid);		
+	},
+	propagateLightChannel: function(gvTexture, firstIteration, channel, textureID) {
 		var shader = (!this._useGeomVolume || firstIteration) ? this.propagationNoBlockShader : this.propagationShader;
 		// set shader
 		shader.UseProgram();
@@ -381,19 +406,29 @@ ngrid.prototype = {
 		shader.setUniformSampler("coeffs_blue", (14+this.sourceGrid));
 		shader.activeSampler(textureList[(14+this.sourceGrid)].texture, (14+this.sourceGrid));
 
-		// to do.. if shader = propagateShader
-		if(shader == this.propagationShader) {
-			// needs to complete
-		
+		if(shader == this.propagationShader) {		
 			// use geometry volume which prevents light from being propagated through blocking geometry
 			// set sampler geometry_volume
+			shader.setUniformSampler("geometry_volume", 19);
+			shader.activeSampler(gvTexture.texture, 19);
+			
 			// set uniform proj_grid_to_gv
+			var projGridtoGvx = [];
+			// geometry volume dimension size = light grid volume dimension size + 1
+			projGridtoGvx.push(this._dimx/(this._dimx+1), 
+							   this._dimy/(this._dimy+1),
+							   this._dimz/(this._dimz+1) );
+			shader.setUniform3f("proj_grid_to_gvx", projGridtoGvx);
+
+			var projGridtoGvy = [];
+			projGridtoGvy.push(0.5/(this._dimx+1), 0.5/(this._dimy+1), 0.5/(this._dimz+1));
+			shader.setUniform3f("proj_grid_to_gvy", projGridtoGvy);
 		}
 
 		shader.setAttributes(this.slices._buffer, "position", gl.FLOAT);
 		shader.setUniform("channel", channel);
 
-		gl.clearColor(0.0, 0.0, 0.0, 1.0);
+		gl.clearColor(0.0, 0.0, 0.0, 0.0);
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 		gl.viewport(0, 0, this._dimx * this._dimz, this._dimy);
 
@@ -450,7 +485,7 @@ ngrid.prototype = {
 		shader.setUniform("channel", channel);
 
 		// add vpls into light volume
-		gl.clearColor(0.0, 0.0, 0.0, 1.0);
+		gl.clearColor(0.0, 0.0, 0.0, 0.0);
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 		gl.viewport(0, 0, this._dimx * this._dimz, this._dimy);
 

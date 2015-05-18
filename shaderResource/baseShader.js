@@ -76,3 +76,13 @@ var texFragmentShader =
 	"     vec2 texCoord = gl_FragCoord.xy / u_resolution;	\n" +
 	"     gl_FragColor = texture2D(u_tex, texCoord);		\n" +
 	" }														\n" ;
+
+var rgbaTexFragmentShader =
+	" precision mediump float;								\n" +
+	" uniform vec2 u_resolution;							\n" +
+	" uniform sampler2D u_tex;								\n" +
+	" void main() {											\n" +
+	" 	vec2 texCoord = gl_FragCoord.xy / u_resolution;		\n" +
+	"	vec4 color = texture2D(u_tex, texCoord);			\n" +
+	"   gl_FragColor = vec4(color.rgb, 1.0);				\n" +
+	" }														\n" ; 
