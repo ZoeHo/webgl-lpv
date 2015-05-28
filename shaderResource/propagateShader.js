@@ -45,13 +45,26 @@ var propagateFragmentShader =
     "	  }															\n" +   
     "	  trans_grid_coords.x = (tex_coords.x + (tex_coords.z * texture_size)) / texture_size ;	\n" +
     "	  trans_grid_coords.y = tex_coords.y;						\n" + 
-    "     vec4 blocker = texture2D(texImage, trans_grid_coords);  \n" +
-    "     return blocker;                                                                    \n" +
+    "     vec4 blocker = texture2D(texImage, trans_grid_coords);  	\n" +
+    "     return blocker;                                           \n" +
     " }                                                                                 \n" +
     "                                                                                   \n" +
 	" vec4 sampleAs3DTexture(sampler2D texImage, vec3 grid_coords) {                  \n" +
     "     // light volume dim = 16                                                      \n" +
-    "     float half_texel_size = 0.0625 * 0.5;                                         \n" +
+    "	  float texture_size = 16.0;								\n" +
+    "	  float texel_size = 1.0 / 16.0;							\n" +
+    "     float half_texel_size = texel_size * 0.5;                 \n" +
+    "	  vec2 trans_grid_coords;									\n" +
+    "	  vec3 tex_coords = grid_coords;							\n" +
+    "                                                               \n" +
+    "	  tex_coords.x += half_texel_size;							\n" +
+    " 	  tex_coords.z -= half_texel_size;							\n" +
+    "	  trans_grid_coords.x = (tex_coords.x + (tex_coords.z * texture_size)) / texture_size ;	\n" +
+    "	  trans_grid_coords.y = tex_coords.y;						\n" + 
+    "     vec4 z0 = texture2D(texImage, trans_grid_coords);  		\n" +
+    "     return z0;                                                \n" +
+    "     			                                                \n" +
+    "     /*float half_texel_size = 0.0625 * 0.5;                                         \n" +
     "     grid_coords.z -= half_texel_size;                                             \n" +
     "     vec3 tex_coords = grid_coords;                                                \n" +
     "     vec2 trans_grid_coords;                                                       \n" +
@@ -64,9 +77,10 @@ var propagateFragmentShader =
     "         tex_coords.z = 1.0 - 0.0625;                                              \n" +
     "     }                                                                             \n" +
     "                                                                                   \n" +
-    "     trans_grid_coords.x = (tex_coords.x + /*floor*/( tex_coords.z * 16.0 ) ) / 16.0; \n" +
+    "     trans_grid_coords.x = (tex_coords.x + ( tex_coords.z * 16.0 ) ) / 16.0; \n" +
+    "     //trans_grid_coords.x = (tex_coords.x + floor( tex_coords.z * 16.0 ) ) / 16.0; \n" +
     "     trans_grid_coords.y = tex_coords.y;                                           \n" +
-    "     vec4 z0 = texture2D(texImage, trans_grid_coords);                           \n" +
+    "     vec4 z0 = texture2D(texImage, trans_grid_coords);*/                           \n" +
     "                                                                                   \n" +
     "     /*// get vexel color in z1 slice                                                \n" +
     "     if( grid_coords.z < 0.0 || grid_coords.z >= ( 1.0 - 0.0625*0.5 ) ) {          \n" +
@@ -83,7 +97,6 @@ var propagateFragmentShader =
     "                                                                                   \n" +
     "     // do linear interpolation to get real z vexel color                          \n" +
     "     return mix( z0, z1, zOffset );*/                                                \n" +
-    "     return z0;                                                                    \n" +
     " }                                                                                 \n" +
     "                                                                                   \n" +
 	" vec4 vpl_add_contribution(vec4 vpl, vec4 contribution) {						\n" +

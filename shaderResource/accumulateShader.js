@@ -15,7 +15,19 @@ var accumulateFragmentShader =
 	" 																					\n" +
 	" vec4 sampleAs3DTexture( sampler2D texImage, vec3 grid_coords ) {                  \n" +
     "     // light volume dim = 16                                                      \n" +
-    "     float half_texel_size = 0.0625 * 0.5;                                         \n" +
+    "	  float texture_size = 16.0;								\n" +
+    "	  float texel_size = 1.0 / 16.0;							\n" +
+    "     float half_texel_size = texel_size * 0.5;                 \n" +
+    "	  vec2 trans_grid_coords;									\n" +
+    "	  vec3 tex_coords = grid_coords;							\n" +
+    "                                                               \n" +
+    "	  tex_coords.x += half_texel_size;							\n" +
+    " 	  tex_coords.z -= half_texel_size;							\n" +
+    "	  trans_grid_coords.x = (tex_coords.x + (tex_coords.z * texture_size)) / texture_size ;	\n" +
+    "	  trans_grid_coords.y = tex_coords.y;						\n" + 
+    "     vec4 z0 = texture2D(texImage, trans_grid_coords);  		\n" +
+    "     return z0;                                                \n" +
+    "     /*float half_texel_size = 0.0625 * 0.5;                                         \n" +
     "     grid_coords.z -= half_texel_size;                                             \n" +
     "     vec3 tex_coords = grid_coords;                                                \n" +
     "     vec2 trans_grid_coords;                                                       \n" +
@@ -32,7 +44,7 @@ var accumulateFragmentShader =
     "     trans_grid_coords.y = tex_coords.y;                                           \n" +
     "     vec4 z0 = texture2D( texImage, trans_grid_coords );                           \n" +
     "                                                                                   \n" +
-    "     return z0;                                                                    \n" +
+    "     return z0;*/                                                                    \n" +
     " }                                                                                 \n" +
     "                                                                                   \n" +
 	" vec4 accumulateCoeff( float channel ) {											\n" +

@@ -84,5 +84,6 @@ var rgbaTexFragmentShader =
 	" void main() {											\n" +
 	" 	vec2 texCoord = gl_FragCoord.xy / u_resolution;		\n" +
 	"	vec4 color = texture2D(u_tex, texCoord);			\n" +
+	"	//if(color.r > 0.0) {color.r = 1.0;} if(color.g > 0.0) {color.g = 1.0;} if(color.b > 0.0) {color.b = 1.0;} \n" +
 	"   gl_FragColor = vec4(color.rgb, 1.0);				\n" +
 	" }														\n" ; 

@@ -250,6 +250,9 @@ ngrid.prototype = {
 		if(this._iterations) {
 			// propagate start
 			this.propagateAccumulate(geometryVolume.gvTexture2);
+
+			// needs to do ....gridtoShow , lightVolume swap
+			this.gridtoShow = this.lightVolume;
 		}
 	},
 	injectVplsLightChannel: function(rsm, geometryVolume, channel, textureID) {
@@ -314,13 +317,13 @@ ngrid.prototype = {
 	},
 	propagateAccumulate: function(gvTexture) {
 		// test data
-		var redpixels = new Float32Array(256*16*4);
+		/*var redpixels = new Float32Array(256*16*4);
 		var value = 1.0 / (16.0*16.0*16.0*4.0);
 		for(var i = 0; i < 256*16*4; i+=4) {
-			redpixels[i] = initR[i];
-			redpixels[i+1] = initR[i+1];
-			redpixels[i+2] = initR[i+2];
-			redpixels[i+3] = initR[i+3];
+			redpixels[i] = inR[i];//initR[i];
+			redpixels[i+1] = inR[i+1];//initR[i+1];
+			redpixels[i+2] = inR[i+2];//initR[i+2];
+			redpixels[i+3] = inR[i+3];//initR[i+3];
 		}
 		gl.bindTexture(gl.TEXTURE_2D, textureList[8].texture);
     	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 256, 16, 0, gl.RGBA, gl.FLOAT, redpixels );
@@ -358,25 +361,31 @@ ngrid.prototype = {
 		gl.bindTexture(gl.TEXTURE_2D, textureList[19].texture);
     	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 17*17, 17, 0, gl.RGBA, gl.FLOAT, gvpixels );
     	gl.bindTexture(gl.TEXTURE_2D, null);
-    	// test data
+    	// test data*/
 
 		// propagate and accumulate result of each propagation step
 		// first vpl propagate, stage 0 propagate: source = intensity 0, destination = intensity 1
 		this.propagate(gvTexture, true);
 		// first accumulate vpls
 		this.accumulate(this.destGrid, this.sourceGrid);
-
+		
 		var temp = this.lightVolume;
 		this.lightVolume = this.sourceGrid;
 		this.sourceGrid = this.destGrid;
 		this.destGrid = temp;
 		
-		for(var iteration = 1; iteration < 2/*this._iterations*/; iteration++) {
+		for(var iteration = 1; iteration < this._iterations; iteration++) {
 			this.propagate(gvTexture, false);
 			this.accumulate(this.destGrid, this.lightVolume);
-			// need to swap
+			// need to swap source & dest
+			// swap(a,b):  b = [a, a=b][0];
+			this.destGrid = [this.sourceGrid, this.sourceGrid = this.destGrid][0];
 		}
-		drawRGBATexture(16*16, 16, 14);
+
+		// reset source & dest
+		this.sourceGrid = 0;
+		this.destGrid = 1;
+		this.lightVolume = 2;
 	},
 	propagate: function(gvTexture, firstIteration, channel, textureID) {
 		// first iteration : propagate without blocking potentials
