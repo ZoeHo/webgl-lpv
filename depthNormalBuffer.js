@@ -14,6 +14,8 @@ function ndepthNormalBuffer() {
     this._fromViewtoGrid = [];
 
     this._params = [];
+
+    this.depthNormalFramebuffer;
 }
 
 ndepthNormalBuffer.prototype = {
@@ -50,6 +52,9 @@ ndepthNormalBuffer.prototype = {
 
         // create depth normal & resample shader
         this.createShader();
+
+        // create framebuffer obj.
+        this.depthNormalFramebuffer = gl.createFramebuffer(); 
     },
     createShader: function() {
         this.depthNormalShader = new ShaderResource();
@@ -100,15 +105,21 @@ ndepthNormalBuffer.prototype = {
         gl.viewport(0, 0, this._width, this._height);
         gl.clearColor(1.0, 1.0, 1.0, 1.0);
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+        // using framebuffer to get shader result. 
+        shader.bindTexToFramebuffer(this.depthNormalFramebuffer, textureList[4].texture);
     },
     draw: function() {
         // draw test_model object
         // needs model position and normal buffer.
-        gl.bindTexture(gl.TEXTURE_2D, textureList[4].texture);
+        //gl.bindTexture(gl.TEXTURE_2D, textureList[4].texture);
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, vertexIndexBuffer);
         gl.drawElements(gl.TRIANGLES, vertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
-        gl.copyTexImage2D(gl.TEXTURE_2D, 0, textureList[4].params.internalFormat, 0, 0, this._width, this._height, 0);
-        gl.bindTexture(gl.TEXTURE_2D, null);
+        /*gl.copyTexImage2D(gl.TEXTURE_2D, 0, textureList[4].params.internalFormat, 0, 0, this._width, this._height, 0);
+        gl.bindTexture(gl.TEXTURE_2D, null);*/
+
+        // switch main framebuffer
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     },
     resample: function() {
         // dawnsapmle
@@ -129,8 +140,13 @@ ndepthNormalBuffer.prototype = {
         gl.viewport(0, 0, this._blockerBufferWidth, this._blockerBufferHeight);
         gl.clearColor(0.0, 0.0, 0.0, 1.0);
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+        // using framebuffer to get shader result. 
+        shader.bindTexToFramebuffer(this.depthNormalFramebuffer, textureList[5].texture);
         // draw full screen resample texture
         this.drawResampleTexture();
+
+        shader.unbindFramebuffer();
         shader.unbindSampler();
     },
     getScreenPositionBuffer: function() {
@@ -163,9 +179,9 @@ ndepthNormalBuffer.prototype = {
 
         gl.bindTexture(gl.TEXTURE_2D, null);
 
-        gl.bindTexture(gl.TEXTURE_2D, textureList[5].texture);
+        /*gl.bindTexture(gl.TEXTURE_2D, textureList[5].texture);
         gl.copyTexImage2D(gl.TEXTURE_2D, 0, textureList[5].params.internalFormat, 0, 0, this._blockerBufferWidth, this._blockerBufferHeight, 0);
-        gl.bindTexture(gl.TEXTURE_2D, null);
+        gl.bindTexture(gl.TEXTURE_2D, null);*/
 
         gl.depthMask(true);
         gl.enable(gl.DEPTH_TEST);
