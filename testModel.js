@@ -231,8 +231,11 @@ function renderRsmTex(light, rsm, shaderID, textureID) {
     rsmShader.setAttributes(vertexTextureCoordBuffer, "texcoord", gl.FLOAT);
     rsmShader.setAttributes(vertexColorBuffer, "color", gl.FLOAT);
 
-    drawTextureElement(textureID);
+    // using framebuffer to get shader result. 
+    rsmShader.bindTexToFramebuffer(rsm.rsmFramebuffer, textureList[textureID].texture);
 
+    drawTextureElement(textureID);
+    rsmShader.unbindFramebuffer();
     // Create a framebuffer and attach the texture.
     /*var fb = gl.createFramebuffer();
     gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
@@ -240,17 +243,17 @@ function renderRsmTex(light, rsm, shaderID, textureID) {
 }
 
 function drawTextureElement(textureID) {
-    gl.bindTexture(gl.TEXTURE_2D, textureList[textureID].texture);
+    //gl.bindTexture(gl.TEXTURE_2D, textureList[textureID].texture);
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, vertexIndexBuffer);
     gl.drawElements(gl.TRIANGLES, vertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
     //gl.drawArrays(gl.TRIANGLES, 0, 234);
     
-    gl.copyTexImage2D(gl.TEXTURE_2D, 0, textureList[textureID].params.internalFormat, 0, 0, textureList[textureID].width, textureList[textureID].height, 0);
+    /*gl.copyTexImage2D(gl.TEXTURE_2D, 0, textureList[textureID].params.internalFormat, 0, 0, textureList[textureID].width, textureList[textureID].height, 0);
     if(textureList[textureID].params.type === gl.FLOAT) {
         Texture.getFloatTexImage(textureID);
     } else if(textureList[textureID].params.type === gl.UNSIGNED_BYTE) {
         Texture.getUnsignedTexImage(textureID);
-    }
+    }*/
 
     gl.bindTexture(gl.TEXTURE_2D, null);
     //gl.bindFramebuffer(gl.FRAMEBUFFER, null);

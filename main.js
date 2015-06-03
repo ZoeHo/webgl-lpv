@@ -57,7 +57,7 @@ var zRot = 0;
 function display() {
     // draw scene to RSM
     drawtoRsm(sunLight, rsm);
-
+    
     var viewMat = mat4.create();
     viewMat = mvMatrix;
 
@@ -66,7 +66,7 @@ function display() {
         depthNormalBuffer.begin(viewMat, pMatrix, sunLight);
         depthNormalBuffer.draw();
         depthNormalBuffer.resample();
-
+        
         // gpu
         // inject blocking potentials into geometry volume
         grid.inject(geometryVolume, depthNormalBuffer);

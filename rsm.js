@@ -8,6 +8,8 @@ function RSM() {
     this.depthTex;
     this.depthBuffer;
     this.renderTexture;
+
+    this.rsmFramebuffer;
 }
 
 RSM.prototype = {
@@ -19,8 +21,8 @@ RSM.prototype = {
         var normalParams = new TextureParams();
         normalParams.magFilter = gl.NEAREST;
         normalParams.minFilter = gl.NEAREST;
-        normalParams.internalFormat = gl.LUMINANCE;
-        normalParams.sourceFormat = gl.LUMINANCE;
+        normalParams.internalFormat = gl.RGBA;//gl.LUMINANCE;
+        normalParams.sourceFormat = gl.RGBA;//gl.LUMINANCE;
         normalParams.type = gl.FLOAT;
 
         this.normalTexX = new Texture("rsmNormalTexX", normalParams, this.width, this.height, null);
@@ -47,6 +49,9 @@ RSM.prototype = {
         this.depthBuffer = new DepthBuffer();
         this.depthBuffer.params = new DepthBufferParams();
         this.depthBuffer.create(this.depthBuffer.params, _width, _height);
+
+        // create framebuffer obj.
+        this.rsmFramebuffer = gl.createFramebuffer();
     },
     getWidth: function() {
         return this.width;

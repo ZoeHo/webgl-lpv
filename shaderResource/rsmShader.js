@@ -90,7 +90,7 @@ var rsmNormalXFragmentShader =
 	" }																							\n" +
 	" 																							\n" +
 	" void main() {																				\n" +
-	" 	gl_FragData[0] = encode_float(grid_space_normal.x);//vec4(grid_space_normal.x, 1.0, 1.0, 1.0);								\n" +
+	" 	gl_FragData[0] = vec4(grid_space_normal.x, 0.0, 0.0, 1.0);//encode_float(grid_space_normal.x);//vec4(grid_space_normal.x, 1.0, 1.0, 1.0);								\n" +
 	" }													 										\n";
 
 var rsmNormalYFragmentShader =
@@ -129,7 +129,7 @@ var rsmNormalYFragmentShader =
 	" }																							\n" +
 	"																							\n" +
 	" void main() {																				\n" +
-	" 	gl_FragData[0] = encode_float(grid_space_normal.y);//vec4(grid_space_normal.y, 1.0, 1.0, 1.0);								\n" +
+	" 	gl_FragData[0] = vec4(grid_space_normal.y, 0.0, 0.0, 1.0);//encode_float(grid_space_normal.y);//vec4(grid_space_normal.y, 1.0, 1.0, 1.0);								\n" +
 	" }													 										\n";
 
 // Diffuse shader
@@ -185,5 +185,5 @@ var rsmDepthFragmentShader =
 	" }																							\n" +
 	"																							\n" +
 	" void main() {																				\n" +
-	" 	gl_FragData[0] = encode_float(depth);//vec4(depth, 1.0, 1.0, 1.0);						\n" +
+	" 	gl_FragData[0] = vec4(depth, 0.0, 0.0, 1.0);//encode_float(depth);//vec4(depth, 1.0, 1.0, 1.0);						\n" +
 	" }																							\n";	
