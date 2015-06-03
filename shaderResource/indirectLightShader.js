@@ -138,7 +138,7 @@ var indirectLightFragmentShader =
     "   vec3 indirect = calc_indirect_lighting(grid_coords, transfer_function);			\n" +
     "																					\n" +
     "   //gl_FragColor.rgb = indirect;                                                  \n" +
-    "	vec4 blue = sampleAs3DTexture(incoming_blue, grid_coords);                      \n" +
+    "	//vec4 red = sampleAs3DTexture(incoming_red, grid_coords);                      \n" +
     "   gl_FragColor = vec4(indirect, 1.0);												\n" +
     " }																					\n";
 

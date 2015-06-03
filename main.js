@@ -77,6 +77,8 @@ function display() {
 
         // inject & propagate virtual point light
         grid.injectVpls(rsm, geometryVolume);
+        // propagate & accumulate virtual point light
+        grid.propagateAccumulateVpls(geometryVolume);
         
         // cpu
         // inject blocking potentials into geometry volume
@@ -90,24 +92,24 @@ function display() {
         grid.injectVpls(rsm, geometryVolume);*/
 
         // compute indirect light
-        /*indirectLightBuffer.begin(viewMat, pMatrix, sunLight, env.lightVolumeTextureDim);
+        indirectLightBuffer.begin(viewMat, pMatrix, sunLight, env.lightVolumeTextureDim);
         grid.bindLightVolumeTexture();
         indirectLightBuffer.draw();
         grid.unbindLightVolumeTexture();
-
+        
         // blur indirect light buffer
-        indirectLightBuffer.blur(depthNormalBuffer, env.lightVolumeTextureDim, sunLight);*/
+        indirectLightBuffer.blur(depthNormalBuffer, env.lightVolumeTextureDim, sunLight);
     }
     /*var skyColor = (-1.0) * sunLight.getLightDirinWorldSpace()[1];
     skyColor = Math.max(0.0, skyColor);
     skyColor = Math.min(1.0, skyColor);
     gl.clearColor(0.0, 0.0, skyColor, 1.0);*/
-    /*gl.clearColor(0.0, 0.0, 0.0, 1.0);
+    gl.clearColor(0.0, 0.0, 0.0, 1.0);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     gl.viewport(0, 0, canvas.width, canvas.height);
 
     // render the scene, add direct/indirect light & shadow
-    drawModel(viewMat, pMatrix, indirectLightBuffer, sunLight, rsm, env.indirectLightOn);*/
+    drawModel(viewMat, pMatrix, indirectLightBuffer, sunLight, rsm, env.indirectLightOn);
 }
 
 function drawScene() {

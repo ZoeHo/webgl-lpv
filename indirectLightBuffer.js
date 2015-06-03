@@ -12,6 +12,8 @@ function nIndirectLightBuffer() {
     this.indirectLightShader;
     this.indirectLightDampenShader;
     this.blurShader;
+
+    this.lightFramebuffer;
 }
 
 nIndirectLightBuffer.prototype = {
@@ -40,6 +42,9 @@ nIndirectLightBuffer.prototype = {
 
         // create indirect light & blur shader
         this.createShader();
+
+        // create framebuffer obj.
+        this.lightFramebuffer = gl.createFramebuffer();
     },
     createShader: function() {
         // first indirect light shader , not define dampen
@@ -98,9 +103,12 @@ nIndirectLightBuffer.prototype = {
         
         shader.setUniform3f("grid_origin", light.getGridbox().getMin());
         
-        shader.setUniformSampler("incoming_red", 8);
+        /*shader.setUniformSampler("incoming_red", 8);
         shader.setUniformSampler("incoming_green", 9);
-        shader.setUniformSampler("incoming_blue", 10);
+        shader.setUniformSampler("incoming_blue", 10);*/
+        shader.setUniformSampler("incoming_red", 8);
+        shader.setUniformSampler("incoming_green", 11);
+        shader.setUniformSampler("incoming_blue", 14);
     },
     draw: function() {
         var shader = this.selectShader();
@@ -108,13 +116,18 @@ nIndirectLightBuffer.prototype = {
         shader.setAttributes(positionBuffer, "position", gl.FLOAT);
         shader.setAttributes(vertexNormalBuffer, "normal", gl.FLOAT);
 
+        // using framebuffer to get shader result. 
+        shader.bindTexToFramebuffer(this.lightFramebuffer, textureList[6].texture);
+
         gl.drawArrays(gl.TRIANGLES, 0, positionBuffer.numItems);
 
         gl.bindTexture(gl.TEXTURE_2D, null);
 
-        gl.bindTexture(gl.TEXTURE_2D, textureList[6].texture);
+        /*gl.bindTexture(gl.TEXTURE_2D, textureList[6].texture);
         gl.copyTexImage2D(gl.TEXTURE_2D, 0, textureList[6].params.internalFormat, 0, 0, this._width, this._height, 0);
-        gl.bindTexture(gl.TEXTURE_2D, null);
+        gl.bindTexture(gl.TEXTURE_2D, null);*/
+        shader.unbindFramebuffer();
+        shader.unbindSampler();
     },
     blur: function(depthNormalBuffer, lightTextureDim, light) {
         this.blurPassBegin(depthNormalBuffer);
@@ -128,16 +141,23 @@ nIndirectLightBuffer.prototype = {
         var invProj = depthNormalBuffer.getInvProj();
 
         this.indirectLightBufferBlur(lightTextureDim, light, [1.0 / invProj[0], 1.0 / invProj[1]], true);
+        
+        shader.bindTexToFramebuffer(this.lightFramebuffer, textureList[7].texture);
         // draw fullscreen quad
         this.drawBlurPass(7);
+        shader.unbindFramebuffer();
 
         // horizontal blur pass : active blur texture, target texture = indirect light buffer texture
         shader.setUniformSampler("indirect_light_tex", 7);
         shader.activeSampler(textureList[7].texture, 7);
         this.indirectLightBufferBlur(lightTextureDim, light, [1.0 / invProj[0], 1.0 / invProj[1]], false);
+        
+        shader.bindTexToFramebufferForAdd(this.lightFramebuffer, textureList[6].texture);
         // draw fullscreen quad
         this.drawBlurPass(6);
         this.blurPassEnd();
+        shader.unbindFramebuffer();
+        shader.unbindSampler();
     },
     blurPassBegin: function(depthNormalBuffer) {
         // set blur shader to blur indirect light buffer
@@ -189,9 +209,9 @@ nIndirectLightBuffer.prototype = {
 
         gl.bindTexture(gl.TEXTURE_2D, null);
 
-        gl.bindTexture(gl.TEXTURE_2D, textureList[textureID].texture);
+        /*gl.bindTexture(gl.TEXTURE_2D, textureList[textureID].texture);
         gl.copyTexImage2D(gl.TEXTURE_2D, 0, textureList[textureID].params.internalFormat, 0, 0, this._width, this._height, 0);
-        gl.bindTexture(gl.TEXTURE_2D, null);
+        gl.bindTexture(gl.TEXTURE_2D, null);*/
     },
     blurPassEnd: function() {
         gl.depthMask(true);

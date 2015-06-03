@@ -142,12 +142,13 @@ ShaderResource.prototype.setUniform3fv = function(uniformName, buffer) {
     var uniformLocation;
     uniformLocation = this.GetUniform(uniformName);
     gl.uniform3fv(uniformLocation, buffer);
-}
+};
 
-ShaderResource.prototype.setUniformSampler = function(uniformName, textureID) {
+ShaderResource.prototype.setUniformSampler = function(uniformName, value) {
+    // If location is a texture sampler, then value refers to an offset into the array of active textures.
     var uniformLocation;
     uniformLocation = this.GetUniform(uniformName);
-    gl.uniform1i(uniformLocation, textureID);
+    gl.uniform1i(uniformLocation, value);
 };
 
 ShaderResource.prototype.activeSampler = function(texture, activeID) {
@@ -158,7 +159,27 @@ ShaderResource.prototype.activeSampler = function(texture, activeID) {
 ShaderResource.prototype.unbindSampler = function() {
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, null);
-}
+};
+
+ShaderResource.prototype.bindTexToFramebuffer = function(fb, texture) {
+    // attach texture to the framebuffer, drawing shader result to it.
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture,0);
+    gl.clearColor(0.0, 0.0, 0.0, 0.0);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+};
+
+ShaderResource.prototype.bindTexToFramebufferForAdd = function(fb, texture) {
+    // attach texture to the framebuffer, drawing shader result to it.
+    // Not clear the color and depth, texture is shader input to accumulate color.
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture,0);   
+};
+
+ShaderResource.prototype.unbindFramebuffer = function() {
+    // switch main framebuffer
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+};
 
 ShaderResource.prototype.setAttributes = function(buffer, attributeName, type) {
     var attributeLocation;

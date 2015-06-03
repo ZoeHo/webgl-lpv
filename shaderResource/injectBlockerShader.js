@@ -27,10 +27,10 @@ var injectBlockerVertexShader =
 	" vec4 geometryPosition(in vec4 glPositionIn) {										\n" +
 	" 	vec4 pos;																		\n" +
 	"	float halfGridSize = 1.0 / dimSize * 0.5;										\n" +
-	"	pos.x = (glPositionIn.x + floor(glPositionIn.z) + halfGridSize) / (dimSize);	\n" +
+	"	pos.x = (glPositionIn.x + floor(glPositionIn.z) /*+ halfGridSize*/) / (dimSize);	\n" +
 	"	//pos.x = pos.x * 2.0 - 1.0 + halfGridSize;										\n" +
 	"	pos.x = pos.x * 2.0 - 1.0;														\n" +
-	"	pos.y = (glPositionIn.y + halfGridSize) * 2.0 - 1.0;							\n" +
+	"	pos.y = (glPositionIn.y /*+ halfGridSize*/) * 2.0 - 1.0;							\n" +
 	"	pos.z = 0.0;																	\n" +
 	"	pos.w = 1.0;																	\n" +
 	"	return pos;																		\n" +

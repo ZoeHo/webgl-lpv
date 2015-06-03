@@ -70,8 +70,14 @@ function ngrid() {
 	this.injectVplPosBuffer;
 	this.propagatePosBuffer;
 
+	this.lightFramebuffer;
+
 	this.geometryTexture;
 	this.intensityTex;
+
+	this.injectRedTex;
+	this.injectGreenTex;
+	this.injectBlueTex;
 }
 
 ngrid.prototype = {
@@ -117,6 +123,8 @@ ngrid.prototype = {
 		this.createGridTexture();
 		this.createSlices();
 		this.createVpls(rsmWidth, rsmHeight);
+
+		this.lightFramebuffer = gl.createFramebuffer();
 
 		this._light = light;
 	},
@@ -173,13 +181,13 @@ ngrid.prototype = {
 		this._params.internalFormat = gl.RGBA;
 		this._params.sourceFormat = gl.RGBA;
 
-		this.createIntensityTex("lightIntensityRed", this.lightIntensityRed);
-		this.createIntensityTex("lightIntensityGreen", this.lightIntensityGreen);
-		this.createIntensityTex("lightIntensityBlue", this.lightIntensityBlue);
+		this.createIntensityTex("lightIntensityRed");
+		this.createIntensityTex("lightIntensityGreen");
+		this.createIntensityTex("lightIntensityBlue");
 	},
 	// one light intensity texture has 4 channel - RGBA,
 	// texture internal format is gl.LUMINANCE
-	createIntensityTex: function(texName, sourceTex) {
+	createIntensityTex: function(texName) {
 		/*for(var i = 0; i < 4; i++) {
 			var name = texName;
 			var channel = i;
@@ -198,6 +206,18 @@ ngrid.prototype = {
 			
 			var texImage = new Texture(name, this._params, this._dimx * this._dimz, this._dimy);
 			textureList.push(texImage);
+		}
+	},
+	createInjectTexture: function() {
+		if(textureList.length === 20) {
+			this.injectRedTex = new Texture("injectVplsRed", this._params, this._dimx * this._dimz, this._dimy);
+			textureList.push(this.injectRedTex);
+
+			this.injectGreenTex = new Texture("injectVplsGreen", this._params, this._dimx * this._dimz, this._dimy);
+			textureList.push(this.injectGreenTex);
+
+			this.injectBlueTex = new Texture("injectVplsBlue", this._params, this._dimx * this._dimz, this._dimy);
+			textureList.push(this.injectBlueTex);
 		}
 	},
 	// create two vertex buffer - slices & vpls
@@ -240,20 +260,14 @@ ngrid.prototype = {
 		geometryVolume.selectBlockers(this.slices);
 	},
 	injectVpls: function(rsm, geometryVolume) {
+		this.createInjectTexture();
 		// inject & propagate light
 		this.injectVplsLightChannel(rsm, geometryVolume, 0, 8);
 		this.injectVplsLightChannel(rsm, geometryVolume, 1, 11);
 		this.injectVplsLightChannel(rsm, geometryVolume, 2, 14);
-
-		this.gridtoShow = this.sourceGrid;
-
-		if(this._iterations) {
-			// propagate start
-			this.propagateAccumulate(geometryVolume.gvTexture2);
-
-			// needs to do ....gridtoShow , lightVolume swap
-			this.gridtoShow = this.lightVolume;
-		}
+		/*this.injectVplsLightChannel(rsm, geometryVolume, 0, 20);
+		this.injectVplsLightChannel(rsm, geometryVolume, 1, 21);
+		this.injectVplsLightChannel(rsm, geometryVolume, 2, 22);*/
 	},
 	injectVplsLightChannel: function(rsm, geometryVolume, channel, textureID) {
 		// use channel ID to separate RGB three light intensity texture
@@ -302,18 +316,34 @@ ngrid.prototype = {
 		gl.disable(gl.DEPTH_TEST);
 		gl.enable(gl.BLEND);
 		gl.blendFunc(gl.ONE, gl.ONE);
+
+		// using framebuffer to get shader result. 
+		shader.bindTexToFramebuffer(this.lightFramebuffer, textureList[textureID].texture);
 		
 		// sample data from geometry buffer and inject blocking potentials
 		gl.drawArrays(gl.POINTS, 0, numVpls);
 
 		// light intensity red 0
-		gl.bindTexture(gl.TEXTURE_2D, textureList[textureID].texture);
+		/*gl.bindTexture(gl.TEXTURE_2D, textureList[textureID].texture);
         gl.copyTexImage2D(gl.TEXTURE_2D, 0, textureList[textureID].params.internalFormat, 0, 0, 16*16, 16, 0);//this.dimx*this.dimz, this.dimy
-        gl.bindTexture(gl.TEXTURE_2D, null);
+        gl.bindTexture(gl.TEXTURE_2D, null);*/
+        shader.unbindFramebuffer();
 
 		gl.disable(gl.BLEND);
 		gl.enable(gl.DEPTH_TEST);
 		shader.unbindSampler();
+	},
+	propagateAccumulateVpls: function(geometryVolume) {
+		// after inject virtual point light, propagate vpls and acumulate them
+		this.gridtoShow = this.sourceGrid;
+
+		if(this._iterations) {
+			// propagate start
+			this.propagateAccumulate(geometryVolume.gvTexture2);
+
+			// needs to do ....gridtoShow , lightVolume swap
+			this.gridtoShow = this.lightVolume;
+		}
 	},
 	propagateAccumulate: function(gvTexture) {
 		// test data
@@ -387,7 +417,7 @@ ngrid.prototype = {
 		this.destGrid = 1;
 		this.lightVolume = 2;
 	},
-	propagate: function(gvTexture, firstIteration, channel, textureID) {
+	propagate: function(gvTexture, firstIteration) {
 		// first iteration : propagate without blocking potentials
 		// blocking potentials to avoid self shadowing
 		this.propagateLightChannel(gvTexture, firstIteration, 0, 8+this.destGrid);
@@ -406,14 +436,14 @@ ngrid.prototype = {
 		shader.setUniform("halfDimSize", invGridSize[2] * 0.5);
 
 		// bind light volume textures - store light intensities
-		shader.setUniformSampler("coeffs_red", (8+this.sourceGrid));
-		shader.activeSampler(textureList[(8+this.sourceGrid)].texture, (8+this.sourceGrid));
+		shader.setUniformSampler("coeffs_red", 0);
+		shader.activeSampler(textureList[(8+this.sourceGrid)].texture, 0);
 		
-		shader.setUniformSampler("coeffs_green", (11+this.sourceGrid));
-		shader.activeSampler(textureList[(11+this.sourceGrid)].texture, (11+this.sourceGrid));
+		shader.setUniformSampler("coeffs_green", 1);
+		shader.activeSampler(textureList[(11+this.sourceGrid)].texture, 1);
 		
-		shader.setUniformSampler("coeffs_blue", (14+this.sourceGrid));
-		shader.activeSampler(textureList[(14+this.sourceGrid)].texture, (14+this.sourceGrid));
+		shader.setUniformSampler("coeffs_blue", 2);
+		shader.activeSampler(textureList[(14+this.sourceGrid)].texture, 2);
 
 		if(shader == this.propagationShader) {		
 			// use geometry volume which prevents light from being propagated through blocking geometry
@@ -441,21 +471,25 @@ ngrid.prototype = {
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 		gl.viewport(0, 0, this._dimx * this._dimz, this._dimy);
 
+		// using framebuffer to get shader result. 
+		shader.bindTexToFramebuffer(this.lightFramebuffer, textureList[textureID].texture);
+
 		gl.drawArrays(gl.TRIANGLES, 0, this.slices._buffer.numItems);
 		
-		gl.bindTexture(gl.TEXTURE_2D, textureList[textureID].texture);
+		/*gl.bindTexture(gl.TEXTURE_2D, textureList[textureID].texture);
         gl.copyTexImage2D(gl.TEXTURE_2D, 0, textureList[textureID].params.internalFormat, 0, 0, 16*16, 16, 0);
-        gl.bindTexture(gl.TEXTURE_2D, null);
+        gl.bindTexture(gl.TEXTURE_2D, null);*/
 
+        shader.unbindFramebuffer();
 		shader.unbindSampler();
 	},
 	accumulate: function(sourceGrid, destGrid) {
 		// add vpls in each propagation step
-		this.accumulateLightChannel(sourceGrid, destGrid, 0, 8+destGrid);
-		this.accumulateLightChannel(sourceGrid, destGrid, 1, 11+destGrid);
-		this.accumulateLightChannel(sourceGrid, destGrid, 2, 14+destGrid);
+		this.accumulateLightChannel(sourceGrid, 0, 8+destGrid);
+		this.accumulateLightChannel(sourceGrid, 1, 11+destGrid);
+		this.accumulateLightChannel(sourceGrid, 2, 14+destGrid);
 	},
-	accumulateLightChannel: function(sourceGrid, destGrid, channel, textureID){
+	accumulateLightChannel: function(sourceGrid, channel, textureID){
 		// use channel ID to separate RGB three accumulation texture
 		// 0 [red], 1 [green], 2 [blue]
 		var shader = this.accumulateShader;
@@ -479,16 +513,6 @@ ngrid.prototype = {
 		shader.setUniformSampler("spectral_coeffs_b", (14+sourceGrid));
 		shader.activeSampler(textureList[(14+sourceGrid)].texture, (14+sourceGrid));
 
-		// destination sampler
-		shader.setUniformSampler("dest_coeffs_r", (8+destGrid));
-		shader.activeSampler(textureList[(8+destGrid)].texture, (8+destGrid));
-
-		shader.setUniformSampler("dest_coeffs_g", (11+destGrid));
-		shader.activeSampler(textureList[(11+destGrid)].texture, (11+destGrid));
-		
-		shader.setUniformSampler("dest_coeffs_b", (14+destGrid));
-		shader.activeSampler(textureList[(14+destGrid)].texture, (14+destGrid));
-
 		// set attribute - slices
 		shader.setAttributes(this.slices._buffer, "position", gl.FLOAT);
 		shader.setUniform("channel", channel);
@@ -498,12 +522,60 @@ ngrid.prototype = {
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 		gl.viewport(0, 0, this._dimx * this._dimz, this._dimy);
 
+		gl.disable(gl.DEPTH_TEST);
+		gl.enable(gl.BLEND);
+		gl.blendFunc(gl.ONE, gl.ONE);
+
+		// using framebuffer to get shader result. 
+		shader.bindTexToFramebufferForAdd(this.lightFramebuffer, textureList[textureID].texture);
+
 		gl.drawArrays(gl.TRIANGLES, 0, this.slices._buffer.numItems);
 
-		gl.bindTexture(gl.TEXTURE_2D, textureList[textureID].texture);
+		/*gl.bindTexture(gl.TEXTURE_2D, textureList[textureID].texture);
         gl.copyTexImage2D(gl.TEXTURE_2D, 0, textureList[textureID].params.internalFormat, 0, 0, 16*16, 16, 0);
-        gl.bindTexture(gl.TEXTURE_2D, null);
-
+        gl.bindTexture(gl.TEXTURE_2D, null);*/
+        shader.unbindFramebuffer();
+        
+		gl.disable(gl.BLEND);
+		gl.enable(gl.DEPTH_TEST);
         shader.unbindSampler();
+	},
+	bindLightVolumeTexture: function() {
+		// change incoming light volume texture minFilter/magFilter to linear
+		var magFilter = gl.LINEAR;
+		var minFilter = gl.LINEAR;
+
+		// create texture and its texture parameter
+		gl.activeTexture(gl.TEXTURE0 + 8);
+    	gl.bindTexture(gl.TEXTURE_2D, textureList[8].texture);
+		gl.texParameteri(this._params.target, gl.TEXTURE_MAG_FILTER, magFilter);
+        gl.texParameteri(this._params.target, gl.TEXTURE_MIN_FILTER, minFilter);
+
+		gl.activeTexture(gl.TEXTURE0 + 11);
+    	gl.bindTexture(gl.TEXTURE_2D, textureList[11].texture);
+		gl.texParameteri(this._params.target, gl.TEXTURE_MAG_FILTER, magFilter);
+        gl.texParameteri(this._params.target, gl.TEXTURE_MIN_FILTER, minFilter);
+		
+		gl.activeTexture(gl.TEXTURE0 + 14);
+    	gl.bindTexture(gl.TEXTURE_2D, textureList[14].texture);
+		gl.texParameteri(this._params.target, gl.TEXTURE_MAG_FILTER, magFilter);
+        gl.texParameteri(this._params.target, gl.TEXTURE_MIN_FILTER, minFilter);
+	},
+	unbindLightVolumeTexture: function() {
+		// change incoming light volume texture minFilter/magFilter back to nearest
+		var magFilter = gl.NEAREST;
+		var minFilter = gl.NEAREST;		
+	
+		gl.bindTexture(gl.TEXTURE_2D, textureList[8].texture);
+		gl.texParameteri(this._params.target, gl.TEXTURE_MAG_FILTER, magFilter);
+        gl.texParameteri(this._params.target, gl.TEXTURE_MIN_FILTER, minFilter);
+
+    	gl.bindTexture(gl.TEXTURE_2D, textureList[11].texture);
+		gl.texParameteri(this._params.target, gl.TEXTURE_MAG_FILTER, magFilter);
+        gl.texParameteri(this._params.target, gl.TEXTURE_MIN_FILTER, minFilter);
+		
+    	gl.bindTexture(gl.TEXTURE_2D, textureList[14].texture);
+		gl.texParameteri(this._params.target, gl.TEXTURE_MAG_FILTER, magFilter);
+        gl.texParameteri(this._params.target, gl.TEXTURE_MIN_FILTER, minFilter);
 	}
 };

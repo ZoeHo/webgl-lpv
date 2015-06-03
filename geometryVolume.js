@@ -60,6 +60,8 @@ function ngeometryVolume() {
 	this.inject2InstanceIDbuffer;
 	this.selectGvPosBuffer;
 
+	this.gvFramebuffer;
+
 	this.texPos =[];
 }
 
@@ -87,6 +89,8 @@ ngeometryVolume.prototype = {
 		// create inject shader & select shader
 		this.createShader();
 		this.createInstanceIDBuffer();
+
+		this.gvFramebuffer = gl.createFramebuffer();
 		/*this.gvTexture0 = new Float32Array(this._dimx* this._dimy * this._dimz * 4);
 		this.gvTexture1 = new Float32Array(this._dimx* this._dimy * this._dimz * 4);
 		this.gvTexture2 = new Float32Array(this._dimx* this._dimy * this._dimz * 4);*/
@@ -95,7 +99,7 @@ ngeometryVolume.prototype = {
 	},
 	// one light intensity texture has 4 channel - RGBA,
 	// texture internal format is gl.LUMINANCE
-	createGvTexture: function(textureName, sourceTex) {
+	createGvTexture: function(textureName) {
 		var params = new TextureParams();
 		if(textureName === "gvTexture2") {
 			params.magFilter = gl.LINEAR;
@@ -205,16 +209,22 @@ ngeometryVolume.prototype = {
 		gl.viewport(0, 0, this._dimx * this._dimz, this._dimy);
 
 		gl.disable(gl.DEPTH_TEST);
+		gl.depthFunc(gl.LEQUAL);
+
 		gl.enable(gl.BLEND);
 		gl.blendFunc(gl.ONE, gl.ONE);
-		
+
+		// using framebuffer to get shader result. 
+		shader.bindTexToFramebuffer(this.gvFramebuffer, textureList[17].texture);
+
 		// sample data from geometry buffer and inject blocking potentials
 		gl.drawArrays(gl.POINTS, 0, numVpls);
 		gl.bindTexture(gl.TEXTURE_2D, null);
     	
-        gl.bindTexture(gl.TEXTURE_2D, textureList[17].texture);
+        /*gl.bindTexture(gl.TEXTURE_2D, textureList[17].texture);
         gl.copyTexImage2D(gl.TEXTURE_2D, 0, textureList[17].params.internalFormat, 0, 0, 17*17, 17, 0);//this.dimx*this.dimz, this.dimy
-        gl.bindTexture(gl.TEXTURE_2D, null);
+        gl.bindTexture(gl.TEXTURE_2D, null);*/
+        shader.unbindFramebuffer();
 
 		gl.disable(gl.BLEND);
 		gl.enable(gl.DEPTH_TEST);
@@ -269,13 +279,16 @@ ngeometryVolume.prototype = {
 		gl.enable(gl.BLEND);
 		gl.blendFunc(gl.ONE, gl.ONE);
 
+		shader.bindTexToFramebuffer(this.gvFramebuffer, textureList[18].texture);
+
 		// draw this. sample data from RSM and inject blocking potentials
 		gl.drawArrays(gl.POINTS, 0, numVpls);
 		gl.bindTexture(gl.TEXTURE_2D, null);
 
-        gl.bindTexture(gl.TEXTURE_2D, textureList[18].texture);
+        /*gl.bindTexture(gl.TEXTURE_2D, textureList[18].texture);
         gl.copyTexImage2D(gl.TEXTURE_2D, 0, textureList[18].params.internalFormat, 0, 0, 17*17, 17, 0);//this.dimx*this.dimz, this.dimy
-        gl.bindTexture(gl.TEXTURE_2D, null);
+        gl.bindTexture(gl.TEXTURE_2D, null);*/
+        shader.unbindFramebuffer();
 
 		gl.disable(gl.BLEND);
 		gl.enable(gl.DEPTH_TEST);
@@ -299,13 +312,15 @@ ngeometryVolume.prototype = {
         gl.clear(gl.COLOR_BUFFER_BIT);
 		gl.viewport(0, 0, this._dimx * this._dimz, this._dimy);
 
+		shader.bindTexToFramebuffer(this.gvFramebuffer, textureList[19].texture);
+
 	    gl.drawArrays(gl.TRIANGLES, 0, this.selectGvPosBuffer._buffer.numItems);
 	    gl.bindTexture(gl.TEXTURE_2D, null);
 
-	    gl.bindTexture(gl.TEXTURE_2D, textureList[19].texture);
+	    /*gl.bindTexture(gl.TEXTURE_2D, textureList[19].texture);
         gl.copyTexImage2D(gl.TEXTURE_2D, 0, textureList[19].params.internalFormat, 0, 0, 17*17, 17, 0);//this.dimx*this.dimz, this.dimy
-        gl.bindTexture(gl.TEXTURE_2D, null);
-
+        gl.bindTexture(gl.TEXTURE_2D, null);*/
+        shader.unbindFramebuffer();
 		shader.unbindSampler();
 	}
 };
