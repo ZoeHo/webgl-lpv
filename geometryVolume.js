@@ -61,6 +61,7 @@ function ngeometryVolume() {
 	this.selectGvPosBuffer;
 
 	this.gvFramebuffer;
+	this.gvRenderbuffer;
 
 	this.texPos =[];
 }
@@ -90,7 +91,9 @@ ngeometryVolume.prototype = {
 		this.createShader();
 		this.createInstanceIDBuffer();
 
+		// create framebuffer obj.
 		this.gvFramebuffer = gl.createFramebuffer();
+		this.gvRenderbuffer = gl.createRenderbuffer();
 		/*this.gvTexture0 = new Float32Array(this._dimx* this._dimy * this._dimz * 4);
 		this.gvTexture1 = new Float32Array(this._dimx* this._dimy * this._dimz * 4);
 		this.gvTexture2 = new Float32Array(this._dimx* this._dimy * this._dimz * 4);*/
@@ -215,7 +218,7 @@ ngeometryVolume.prototype = {
 		gl.blendFunc(gl.ONE, gl.ONE);
 
 		// using framebuffer to get shader result. 
-		shader.bindTexToFramebuffer(this.gvFramebuffer, textureList[17].texture);
+		shader.bindTexToFramebuffer(this.gvFramebuffer, this.gvRenderbuffer, textureList[17]);
 
 		// sample data from geometry buffer and inject blocking potentials
 		gl.drawArrays(gl.POINTS, 0, numVpls);
@@ -279,7 +282,7 @@ ngeometryVolume.prototype = {
 		gl.enable(gl.BLEND);
 		gl.blendFunc(gl.ONE, gl.ONE);
 
-		shader.bindTexToFramebuffer(this.gvFramebuffer, textureList[18].texture);
+		shader.bindTexToFramebuffer(this.gvFramebuffer, this.gvRenderbuffer, textureList[18]);
 
 		// draw this. sample data from RSM and inject blocking potentials
 		gl.drawArrays(gl.POINTS, 0, numVpls);
@@ -312,7 +315,7 @@ ngeometryVolume.prototype = {
         gl.clear(gl.COLOR_BUFFER_BIT);
 		gl.viewport(0, 0, this._dimx * this._dimz, this._dimy);
 
-		shader.bindTexToFramebuffer(this.gvFramebuffer, textureList[19].texture);
+		shader.bindTexToFramebuffer(this.gvFramebuffer, this.gvRenderbuffer, textureList[19]);
 
 	    gl.drawArrays(gl.TRIANGLES, 0, this.selectGvPosBuffer._buffer.numItems);
 	    gl.bindTexture(gl.TEXTURE_2D, null);

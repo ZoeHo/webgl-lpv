@@ -10,6 +10,7 @@ function RSM() {
     this.renderTexture;
 
     this.rsmFramebuffer;
+    this.rsmRenderbuffer;
 }
 
 RSM.prototype = {
@@ -52,6 +53,7 @@ RSM.prototype = {
 
         // create framebuffer obj.
         this.rsmFramebuffer = gl.createFramebuffer();
+        this.rsmRenderbuffer = gl.createRenderbuffer();
     },
     getWidth: function() {
         return this.width;

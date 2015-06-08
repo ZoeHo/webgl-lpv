@@ -14,6 +14,7 @@ function nIndirectLightBuffer() {
     this.blurShader;
 
     this.lightFramebuffer;
+    this.lightRenderbuffer;
 }
 
 nIndirectLightBuffer.prototype = {
@@ -45,6 +46,7 @@ nIndirectLightBuffer.prototype = {
 
         // create framebuffer obj.
         this.lightFramebuffer = gl.createFramebuffer();
+        this.lightRenderbuffer = gl.createRenderbuffer();
     },
     createShader: function() {
         // first indirect light shader , not define dampen
@@ -117,7 +119,7 @@ nIndirectLightBuffer.prototype = {
         shader.setAttributes(vertexNormalBuffer, "normal", gl.FLOAT);
 
         // using framebuffer to get shader result. 
-        shader.bindTexToFramebuffer(this.lightFramebuffer, textureList[6].texture);
+        shader.bindTexToFramebuffer(this.lightFramebuffer, this.lightRenderbuffer, textureList[6]);
 
         gl.drawArrays(gl.TRIANGLES, 0, positionBuffer.numItems);
 
@@ -142,7 +144,7 @@ nIndirectLightBuffer.prototype = {
 
         this.indirectLightBufferBlur(lightTextureDim, light, [1.0 / invProj[0], 1.0 / invProj[1]], true);
         
-        shader.bindTexToFramebuffer(this.lightFramebuffer, textureList[7].texture);
+        shader.bindTexToFramebuffer(this.lightFramebuffer, this.lightRenderbuffer, textureList[7]);
         // draw fullscreen quad
         this.drawBlurPass(7);
         shader.unbindFramebuffer();

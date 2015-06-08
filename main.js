@@ -96,7 +96,7 @@ function display() {
         grid.bindLightVolumeTexture();
         indirectLightBuffer.draw();
         grid.unbindLightVolumeTexture();
-        
+
         // blur indirect light buffer
         indirectLightBuffer.blur(depthNormalBuffer, env.lightVolumeTextureDim, sunLight);
     }

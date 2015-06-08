@@ -16,6 +16,7 @@ function ndepthNormalBuffer() {
     this._params = [];
 
     this.depthNormalFramebuffer;
+    this.depthNormalRenderbuffer;
 }
 
 ndepthNormalBuffer.prototype = {
@@ -54,7 +55,8 @@ ndepthNormalBuffer.prototype = {
         this.createShader();
 
         // create framebuffer obj.
-        this.depthNormalFramebuffer = gl.createFramebuffer(); 
+        this.depthNormalFramebuffer = gl.createFramebuffer();
+        this.depthNormalRenderbuffer = gl.createRenderbuffer(); 
     },
     createShader: function() {
         this.depthNormalShader = new ShaderResource();
@@ -107,7 +109,7 @@ ndepthNormalBuffer.prototype = {
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
         // using framebuffer to get shader result. 
-        shader.bindTexToFramebuffer(this.depthNormalFramebuffer, textureList[4].texture);
+        shader.bindTexToFramebuffer(this.depthNormalFramebuffer, this.depthNormalRenderbuffer, textureList[4]);
     },
     draw: function() {
         // draw test_model object
@@ -142,7 +144,7 @@ ndepthNormalBuffer.prototype = {
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
         // using framebuffer to get shader result. 
-        shader.bindTexToFramebuffer(this.depthNormalFramebuffer, textureList[5].texture);
+        shader.bindTexToFramebuffer(this.depthNormalFramebuffer, this.depthNormalRenderbuffer,textureList[5]);
         // draw full screen resample texture
         this.drawResampleTexture();
 

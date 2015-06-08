@@ -161,10 +161,15 @@ ShaderResource.prototype.unbindSampler = function() {
     gl.bindTexture(gl.TEXTURE_2D, null);
 };
 
-ShaderResource.prototype.bindTexToFramebuffer = function(fb, texture) {
+ShaderResource.prototype.bindTexToFramebuffer = function(fb, rb, texture) {
     // attach texture to the framebuffer, drawing shader result to it.
     gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
-    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture,0);
+    gl.bindRenderbuffer(gl.RENDERBUFFER, rb);
+    gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, texture.width, texture.height);
+
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture.texture, 0);
+    gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, rb);
+
     gl.clearColor(0.0, 0.0, 0.0, 0.0);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 };
@@ -178,6 +183,7 @@ ShaderResource.prototype.bindTexToFramebufferForAdd = function(fb, texture) {
 
 ShaderResource.prototype.unbindFramebuffer = function() {
     // switch main framebuffer
+    gl.bindRenderbuffer(gl.RENDERBUFFER, null);
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 };
 

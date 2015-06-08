@@ -71,6 +71,7 @@ function ngrid() {
 	this.propagatePosBuffer;
 
 	this.lightFramebuffer;
+	this.lightRenderbuffer;
 
 	this.geometryTexture;
 	this.intensityTex;
@@ -124,7 +125,9 @@ ngrid.prototype = {
 		this.createSlices();
 		this.createVpls(rsmWidth, rsmHeight);
 
+		// create framebuffer obj.
 		this.lightFramebuffer = gl.createFramebuffer();
+		this.lightRenderbuffer = gl.createRenderbuffer();
 
 		this._light = light;
 	},
@@ -318,7 +321,7 @@ ngrid.prototype = {
 		gl.blendFunc(gl.ONE, gl.ONE);
 
 		// using framebuffer to get shader result. 
-		shader.bindTexToFramebuffer(this.lightFramebuffer, textureList[textureID].texture);
+		shader.bindTexToFramebuffer(this.lightFramebuffer, this.lightRenderbuffer, textureList[textureID]);
 		
 		// sample data from geometry buffer and inject blocking potentials
 		gl.drawArrays(gl.POINTS, 0, numVpls);
@@ -472,7 +475,7 @@ ngrid.prototype = {
 		gl.viewport(0, 0, this._dimx * this._dimz, this._dimy);
 
 		// using framebuffer to get shader result. 
-		shader.bindTexToFramebuffer(this.lightFramebuffer, textureList[textureID].texture);
+		shader.bindTexToFramebuffer(this.lightFramebuffer, this.lightRenderbuffer, textureList[textureID]);
 
 		gl.drawArrays(gl.TRIANGLES, 0, this.slices._buffer.numItems);
 		

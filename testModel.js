@@ -232,7 +232,7 @@ function renderRsmTex(light, rsm, shaderID, textureID) {
     rsmShader.setAttributes(vertexColorBuffer, "color", gl.FLOAT);
 
     // using framebuffer to get shader result. 
-    rsmShader.bindTexToFramebuffer(rsm.rsmFramebuffer, textureList[textureID].texture);
+    rsmShader.bindTexToFramebuffer(rsm.rsmFramebuffer, rsm.rsmRenderbuffer, textureList[textureID]);
 
     drawTextureElement(textureID);
     rsmShader.unbindFramebuffer();
